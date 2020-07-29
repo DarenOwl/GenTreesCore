@@ -2,7 +2,9 @@
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace GenTreesCore.Services
@@ -62,6 +64,23 @@ namespace GenTreesCore.Services
                 Owner = owner
             });
             db.SaveChanges();
+        }
+
+        public void Update<T>(T entity, int id, bool saveChanges = true)
+        {
+            var record = (T)db.Find(typeof(T), id);
+            if (record != null)
+            {
+                var props = record.GetType().GetProperties();
+                foreach (var prop in props)
+                {
+                    if (prop.PropertyType.Namespace != nameof(GenTreesCore))
+                        prop.SetValue(record, prop.GetValue(entity));
+                }
+            }
+            else return;
+            if (saveChanges)
+                db.SaveChanges();
         }
     }
 }
