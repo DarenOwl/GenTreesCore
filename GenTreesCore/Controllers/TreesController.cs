@@ -7,9 +7,12 @@ using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using GenTreesCore.Services;
 using System;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace GenTreesCore.Controllers
 {
+    [ApiController]
+    [Route("{controller}/{action}")]
     public class TreesController : Controller
     {
         private TreesService treesService;
@@ -57,8 +60,8 @@ namespace GenTreesCore.Controllers
         }
         */
 
-        [HttpGet("trees/public")]
-        public JsonResult GetPublicTreesList()
+        [HttpGet]
+        public JsonResult Public()
         {
             var trees = treesService.GetPublicTrees()
                 .Select(tree => new GenTreeSimpleViewModel
@@ -76,8 +79,8 @@ namespace GenTreesCore.Controllers
         }
 
         [Authorize]
-        [HttpGet("trees/my")]
-        public JsonResult GetMyTreesList()
+        [HttpGet]
+        public JsonResult My()
         {
             //получаем id авторизованного пользователя
             var authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
@@ -97,8 +100,8 @@ namespace GenTreesCore.Controllers
             return Json(trees);
         }
 
-        [HttpGet("trees/gentree")]
-        public IActionResult GetGenTree(int id)
+        [HttpGet]
+        public IActionResult GenTree(int id)
         {
             int? authorizedUserId = null;
             if (HttpContext.User.Identity.IsAuthenticated)
@@ -115,6 +118,145 @@ namespace GenTreesCore.Controllers
             treeModel.CanEdit = tree.Owner.Id == authorizedUserId;
 
             return Ok(JsonConvert.SerializeObject(treeModel));
+        }
+
+        [HttpPost]
+        public IActionResult UpdateTree(GenTreeViewModel model)
+        {
+            var tree = treesService.GetGenTree(model.Id);
+            if (tree == null)
+                return BadRequest($"no tree with id {model.Id} found");
+
+            try
+            {
+                //обновление дерева
+                tree.Name = model.Name;
+                tree.Description = model.Description;
+                //TODO is private
+                tree.LastUpdated = DateTime.Now;
+                tree.Image = model.Image;
+
+                //обновление шаблонов описаний
+                model.DescriptionTemplates.ForEach(templateModel =>
+                {
+                //получаем соответствующий шаблон описания, который сейчас в бд
+                var template = tree.CustomPersonDescriptionTemplates
+                        .FirstOrDefault(t => t.Id == templateModel.Id);
+                //если такового не было найдено, добавляем
+                if (template == null)
+                        tree.CustomPersonDescriptionTemplates.Add(template);
+                    else
+                    {
+                    //измением свойства
+                    template.Name = templateModel.Name;
+                        template.Type = templateModel.Type;
+                    }
+                });
+
+                //удаляем шаблоны, которые были удалены в модели
+                tree.CustomPersonDescriptionTemplates
+                    .Select(e => e.Id)
+                    .Where(id => model.DescriptionTemplates
+                       .FirstOrDefault(m => m.Id == id) == null)
+                    .ToList()
+                    .ForEach(id =>
+                    {
+                    //удаляем все описания, которые были для шаблона
+                    tree.Persons.ForEach(p => p.CustomDescriptions.RemoveAll(d => d.Template.Id == id));
+                    //удаляем сам шаблон
+                    tree.CustomPersonDescriptionTemplates.RemoveAll(t => t.Id == id);
+                    });
+
+                //обновление людей
+                model.Persons.ForEach(personModel =>
+                {
+                //получаем данные о соответствующем человеке, хранящиеся в бд
+                var person = tree.Persons.FirstOrDefault(p => p.Id == personModel.Id);
+                //если такового не нашлось, добавляем
+                if (person == null)
+                        tree.Persons.Add(new Person
+                        {
+                            LastName = personModel.LastName,
+                            FirstName = personModel.FirstName,
+                            MiddleName = personModel.MiddleName,
+                        //TO DO: добавить Birth Place
+                        Biography = personModel.Biography,
+                            Gender = personModel.Gender,
+                            Image = personModel.Image,
+                            CustomDescriptions = personModel.CustomDescriptions
+                        });
+                    else
+                    {
+                        person.LastName = personModel.LastName;
+                        person.FirstName = personModel.FirstName;
+                        person.MiddleName = personModel.MiddleName;
+                        person.Biography = personModel.Biography;
+                        person.Gender = personModel.Gender;
+                        person.Image = personModel.Image;
+                    //обновляем пользовательские описания
+                    personModel.CustomDescriptions.ForEach(descriptionModel =>
+                        {
+                        //получаем соответствующее описание, которое есть в бд
+                        var description = person.CustomDescriptions.FirstOrDefault(d => d.Id == descriptionModel.Id);
+                        //получаем шаблон описания
+                        var template = tree.CustomPersonDescriptionTemplates.FirstOrDefault(t => t.Id == descriptionModel.Template.Id);
+                        //если указан несуществующий шаблон - игнорируем
+                        if (template == null) return;
+                        //если описания нет, добавляем
+                        if (description == null)
+                                person.CustomDescriptions.Add(description);
+                            else
+                            {
+                                description.Template = template;
+                                description.Value = descriptionModel.Value;
+                            }
+                        });
+
+                    //TO DO: удаление удаленны шаблонов
+                    //обновляем отношения
+                    personModel.Relations.ForEach(relationModel =>
+                        {
+                        //получаем соответсвующую связь, которая есть в бд
+                        var relation = person.Relations.FirstOrDefault(r => r.Id == relationModel.Id);
+                        //добавляем связь если таковой нет
+                        if (relation == null)
+                            {
+                                if (relationModel is SpouseRelationViewModel)
+                                    person.Relations.Add(new SpouseRelation
+                                    {
+                                        TargetPerson = tree.Persons.FirstOrDefault(p => p.Id == relationModel.TargetPersonId),
+                                        IsFinished = (relationModel as SpouseRelationViewModel).IsFinished
+                                    });
+                                else if (relationModel is ChildRelationViewModel)
+                                    person.Relations.Add(new ChildRelation
+                                    {
+                                        TargetPerson = tree.Persons.FirstOrDefault(p => p.Id == relationModel.TargetPersonId),
+                                        RelationRate = (RelationRate)Enum.Parse(typeof(RelationRate), (relationModel as ChildRelationViewModel).RelationRate),
+                                        SecondParent = tree.Persons.FirstOrDefault(p => p.Id == (relationModel as ChildRelationViewModel).SecondParentId)
+                                    });
+                            }
+                            else
+                            {
+                                if (relationModel is SpouseRelationViewModel && relation is SpouseRelation)
+                                    (relation as SpouseRelation).IsFinished = (relationModel as SpouseRelationViewModel).IsFinished;
+                            }
+                        });
+                    }
+                });
+            }
+            catch (Exception e)
+            {
+                return BadRequest($"Some server error occured: {e.Message}");
+            }
+            treesService.SaveChanges();
+            return Ok("tree updated");
+        }
+
+        [HttpPost]
+        public IActionResult Update(CustomPersonDescriptionTemplate model)
+        {
+            treesService.Update(model, model.Id);
+            return Ok();
         }
 
         private GenTreeViewModel ToViewModel(GenTree tree)
