@@ -24,44 +24,6 @@ namespace GenTreesCore.Controllers
             modelEntityConverter = new ModelEntityConverter(context);
         }
 
-        /*
-        public async System.Threading.Tasks.Task<IActionResult> AddTestDateTimeSetting()
-        {
-            
-            var dateTimeSetting = Services.DbProvider.GetTestDateTimeSetting();
-            dateTimeSetting.Owner = db.Users.FirstOrDefault(u => u.Login == "admin");
-            db.GenTreeDateTimeSettings.Add(dateTimeSetting);
-            await db.SaveChangesAsync();
-            return Ok();
-        }
-
-        public async System.Threading.Tasks.Task<IActionResult> AddTestGenTree()
-        {
-            var tree = GenTreesCore.Services.DbProvider.GetSimpleTestGenTree();
-            tree.Owner = db.Users.FirstOrDefault(u => u.Login == "admin");
-            var dateTimeSetting = db.GenTreeDateTimeSettings.FirstOrDefault();
-            tree.GenTreeDateTimeSetting = dateTimeSetting;
-            db.GenTrees.Add(tree);
-            await db.SaveChangesAsync();
-            return RedirectToAction("Public", "Trees");
-        }
-
-        public async System.Threading.Tasks.Task<IActionResult> AddTestDate()
-        {
-            var person = db.GenTrees.Include(t => t.Persons).FirstOrDefault().Persons.FirstOrDefault();
-            var era = db.GenTreeDateTimeSettings.Include(d => d.Eras).FirstOrDefault().Eras.FirstOrDefault();
-            person.BirthDate = new GenTreeDateTime
-            {
-                Era = era,
-                Year = 1874,
-                Month = 2,
-                Day = 20
-            };
-            await db.SaveChangesAsync();
-            return RedirectToAction("Public", "Trees");
-        }
-        */
-
         [HttpGet]
         public JsonResult Public()
         {
