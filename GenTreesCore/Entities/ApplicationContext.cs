@@ -15,8 +15,10 @@ namespace GenTreesCore.Entities
         public ApplicationContext(DbContextOptions<ApplicationContext> options)
             : base(options)
         {
+            /*
             if (!Database.CanConnect())
                 throw new System.Exception("No connection to server");
+            */
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -115,6 +117,11 @@ namespace GenTreesCore.Entities
             modelBuilder.Entity<CustomPersonDescription>()
                 .Property(e => e.Value)
                 .HasConversion(v => JsonConvert.SerializeObject(v), v => JsonConvert.DeserializeObject(v));
+
+            modelBuilder.Entity<CustomPersonDescription>()
+                .HasOne(e => e.Template)
+                .WithMany()
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

@@ -10,6 +10,7 @@ namespace GenTreesCore.Models
         public string Description { get; set; }
         public string Creator { get; set; }
         public bool CanEdit { get; set; }
+        public bool IsPrivate { get; set; }
         public List<PersonViewModel> Persons { get; set; }
         public string DateCreated { get; set; }
         public string LastUpdated { get; set; }
@@ -25,10 +26,9 @@ namespace GenTreesCore.Models
         public string FirstName { get; set; }
         public string MiddleName { get; set; }
         public string Gender { get; set; }
-        public string BirthDate { get; set; }
-        public string ShortBirthDate { get; set; }
-        public string DeathDate { get; set; }
-        public string ShortDeathDate { get; set; }
+        public GenTreeDateViewModel BirthDate { get; set; }
+        public GenTreeDateViewModel DeathDate { get; set; }
+        public string BirthPlace { get; set; }
         public string Biography { get; set; }
         public string Image { get; set; }
         public List<CustomPersonDescription> CustomDescriptions { get; set; }
@@ -51,5 +51,19 @@ namespace GenTreesCore.Models
     public class SpouseRelationViewModel: RelationViewModel
     {
         public bool IsFinished { get; set; }
+    }
+
+    public class GenTreeDateViewModel
+    {
+        public int Id { get; set; }
+        public int EraId { get; set; }
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public int Day { get; set; }
+        public int Hour { get; set; }
+        public int Minute { get; set; }
+        public int Second { get; set; }
+        public string ShortDate { get; set; }
+        public string FullDate { get; set; }
     }
 }

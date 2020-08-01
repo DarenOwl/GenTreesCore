@@ -66,6 +66,22 @@ namespace GenTreesCore.Services
             db.SaveChanges();
         }
 
+        public void Update(GenTree entity)
+        {
+            var record = db.Find<GenTree>(entity.Id);
+            if (record == null)
+                return;
+            else
+            {
+                record.Name = entity.Name;
+                record.Description = entity.Description;
+                record.IsPrivate = entity.IsPrivate;
+                record.LastUpdated = DateTime.Now;
+                record.Image = entity.Image;
+            }
+            db.SaveChanges();
+        }
+
         public void Update<T>(T entity, int id, bool saveChanges = true)
         {
             var record = (T)db.Find(typeof(T), id);
@@ -81,6 +97,11 @@ namespace GenTreesCore.Services
             else return;
             if (saveChanges)
                 db.SaveChanges();
+        }
+
+        public void SaveChanges()
+        {
+            db.SaveChanges();
         }
     }
 }
