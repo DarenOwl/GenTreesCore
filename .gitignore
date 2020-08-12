@@ -361,3 +361,5 @@ FodyWeavers.xsd
 GenTreesCore/package-lock.json
 
 GenTreesCore/wwwroot/js/dist/
+GenTreesTests/
+GenTreesCore/appsettings.json
