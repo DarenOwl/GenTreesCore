@@ -1,11 +1,9 @@
 ﻿using GenTreesCore.Entities;
+using GenTreesCore.Models;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
 
 namespace GenTreesCore.Services
 {
@@ -66,20 +64,11 @@ namespace GenTreesCore.Services
             db.SaveChanges();
         }
 
-        public void Update(GenTree entity)
+        public TreeUpdateResult Update(GenTree entity, GenTreeViewModel model)
         {
-            var record = db.Find<GenTree>(entity.Id);
-            if (record == null)
-                return;
-            else
-            {
-                record.Name = entity.Name;
-                record.Description = entity.Description;
-                record.IsPrivate = entity.IsPrivate;
-                record.LastUpdated = DateTime.Now;
-                record.Image = entity.Image;
-            }
-            db.SaveChanges();
+            var updateService = new TreeUpdateService(db);
+            updateService.UpdateTree(entity, model);
+            return updateService.UpdateResult;
         }
 
         public void Update<T>(T entity, int id, bool saveChanges = true)

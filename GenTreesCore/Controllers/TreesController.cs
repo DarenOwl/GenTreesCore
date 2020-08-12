@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using GenTreesCore.Services;
 using System;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace GenTreesCore.Controllers
 {
@@ -16,13 +15,10 @@ namespace GenTreesCore.Controllers
     public class TreesController : Controller
     {
         private TreesService treesService;
-        private ModelEntityConverter modelEntityConverter;
 
         public TreesController(ApplicationContext context)
         {
-            treesService = new TreesService(context);
-            modelEntityConverter = new ModelEntityConverter(context);
-        }
+            treesService = new TreesService(context);        }
 
         [HttpGet]
         public JsonResult Public()
@@ -78,29 +74,31 @@ namespace GenTreesCore.Controllers
             if (tree.IsPrivate && tree.Owner.Id != authorizedUserId)
                 return BadRequest("access denied");
 
-            var treeModel = modelEntityConverter.ToViewModel(tree);
+            var treeModel = new ModelEntityConverter().ToViewModel(tree);
             treeModel.CanEdit = tree.Owner.Id == authorizedUserId;
 
             return Ok(JsonConvert.SerializeObject(treeModel));
         }
 
         [HttpPost]
-        public IActionResult UpdateTree(GenTreeViewModel model)
+        public IActionResult UpdateTree([FromBody]string json)
         {
+            var model = JsonConvert.DeserializeObject<GenTreeViewModel>(json, new RelationViewModelJsonConverter());
             var tree = treesService.GetGenTree(model.Id);
             if (tree == null)
                 return BadRequest($"no tree with id {model.Id} found");
 
+            TreeUpdateResult result;
             try
             {
-                modelEntityConverter.UpdateEntity(model, tree);
+                result = treesService.Update(tree, model);
             }
             catch (Exception e)
             {
-                return BadRequest($"Some server error occured: {e.Message}");
+                return BadRequest($"Invalid data caused a server error: {e.Message}");
             }
             treesService.SaveChanges();
-            return Ok("tree updated");
+            return Ok(result);
         }
 
         [HttpPost]
