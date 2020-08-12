@@ -1,9 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 
 namespace GenTreesCore.Entities
 {
@@ -113,10 +109,6 @@ namespace GenTreesCore.Entities
         {
             modelBuilder.Entity<CustomPersonDescription>()
                 .ToTable("CustomPersonDescriptions");
-
-            modelBuilder.Entity<CustomPersonDescription>()
-                .Property(e => e.Value)
-                .HasConversion(v => JsonConvert.SerializeObject(v), v => JsonConvert.DeserializeObject(v));
 
             modelBuilder.Entity<CustomPersonDescription>()
                 .HasOne(e => e.Template)
