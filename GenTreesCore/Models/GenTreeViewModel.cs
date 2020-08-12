@@ -39,18 +39,30 @@ namespace GenTreesCore.Models
     {
         public int Id { get; set; }
         public int TargetPersonId { get; set; }
-        public string RelationType { get; set; }
+        public string RelationType { get { return GetRelationName(); } }
+
+        public virtual string GetRelationName() => this.GetType().ToString();
     }
 
     public class ChildRelationViewModel: RelationViewModel
     {
         public int? SecondParentId { get; set; }
         public string RelationRate { get; set; }
+
+        public override string GetRelationName()
+        {
+            return "ChildRelation";
+        }
     }
 
     public class SpouseRelationViewModel: RelationViewModel
     {
         public bool IsFinished { get; set; }
+
+        public override string GetRelationName()
+        {
+            return "SpouseRelation";
+        }
     }
 
     public class GenTreeDateViewModel
