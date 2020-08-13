@@ -83,7 +83,16 @@ namespace GenTreesCore.Controllers
         [HttpPost]
         public IActionResult UpdateTree([FromBody]string json)
         {
-            var model = JsonConvert.DeserializeObject<GenTreeViewModel>(json, new RelationViewModelJsonConverter());
+            GenTreeViewModel model;
+            try
+            {
+                model = JsonConvert.DeserializeObject<GenTreeViewModel>(json, new RelationViewModelJsonConverter());
+            }
+            catch (Exception e)
+            {
+                return BadRequest($"Invalid json: {e.Message}");
+            }
+
             var tree = treesService.GetGenTree(model.Id);
             if (tree == null)
                 return BadRequest($"no tree with id {model.Id} found");

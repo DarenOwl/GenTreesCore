@@ -27,7 +27,11 @@ namespace GenTreesCore.Services
 
         public void ResetUpdateResult()
         {
-            updateResult = null;
+            updateResult = new TreeUpdateResult
+            {
+                Replacements = new Dictionary<int, int>(),
+                Errors = new List<int>()
+            };
         }
 
         public void UpdateTree(GenTree tree, GenTreeViewModel model)
@@ -47,20 +51,29 @@ namespace GenTreesCore.Services
                 UpdateDateTimeSetting(tree.GenTreeDateTimeSetting, model.DateTimeSetting);
 
             //обновление списка шаблонов описаний
+            if (tree.CustomPersonDescriptionTemplates == null && model.DescriptionTemplates != null)
+                tree.CustomPersonDescriptionTemplates = new List<CustomPersonDescriptionTemplate>();
             ApplyChanges(tree.CustomPersonDescriptionTemplates, model.DescriptionTemplates, e => e.Id, m => m.Id,
-                add: m => AddEntity(m, x => tree.CustomPersonDescriptionTemplates.Add(x), x => x.Id, m.Id),
+                add: m => AddEntity(m, x => tree.CustomPersonDescriptionTemplates.Add(x), x => x.Id, x => m.Id = x, m.Id),
                 update: (e, m) => converter.ApplyModelData(e, m),
                 delete: e => db.Set<CustomPersonDescriptionTemplate>().Remove(e));
 
             //обновление списка людей-узлов дерева
+            if (tree.Persons == null && model.Persons != null)
+                tree.Persons = new List<Person>();
             ApplyChanges(tree.Persons, model.Persons, e => e.Id, m => m.Id,
-                add: m => AddEntity(converter.ToEntity(m, tree), x => tree.Persons.Add(x), x => x.Id, m.Id),
+                add: m => AddEntity(converter.ToEntity(m, tree), x => tree.Persons.Add(x), x => x.Id, x => m.Id = x, m.Id),
                 update: (e, m) => UpdatePerson(e, m, tree),
                 delete: e => db.Set<Person>().Remove(e));
 
             //Обновление отношений (обязательно после полного обновления списка людей)
-            foreach (var person in tree.Persons)
-                UpdatePersonRelations(person, model.Persons.FirstOrDefault(x => x.Id == person.Id), tree);                
+            if (tree.Persons != null)
+                foreach (var person in tree.Persons)
+                {
+                    if (person.Relations == null)
+                        person.Relations = new List<Relation>();
+                    UpdatePersonRelations(person, model.Persons.FirstOrDefault(x => x.Id == person.Id), tree);
+                }
         }
 
         public void UpdatePerson(Person entity, PersonViewModel model, GenTree tree)
@@ -77,15 +90,16 @@ namespace GenTreesCore.Services
             //обновление пользовательских описаний (сопоставление по Id шаблона)
             ApplyChanges(entity.CustomDescriptions, model.CustomDescriptions, e => e.Template.Id, m => m.Template.Id,
                 add: m => AddEntity(m, x =>
-                    {
-                        //определять ссылку на шаблон нужно только при добавлении, так как сопоставляем по шаблонам
-                        x.Template = tree.CustomPersonDescriptionTemplates.FirstOrDefault(t => t.Id == GetDBId(m.Template.Id));
-                        entity.CustomDescriptions.Add(x);
-                    },
-                    x => x.Id, m.Id),
+                {
+                    //определять ссылку на шаблон нужно только при добавлении, так как сопоставляем по шаблонам
+                    m.Template.Id = GetDBId(m.Template.Id);
+                    x.Template = tree.CustomPersonDescriptionTemplates.FirstOrDefault(t => t.Id == m.Template.Id);
+                    entity.CustomDescriptions.Add(x);
+                },
+                    x => x.Id, x => m.Id = x, m.Id),
                 update: (e, m) => converter.ApplyModelData(e, m),
-                delete: e => db.Set<CustomPersonDescription>().Remove(e));
-            
+                delete: e => entity.CustomDescriptions.Remove(e));
+
             //WARNING не обновлять отношения до обновления всего списка людей!
         }
 
@@ -99,10 +113,10 @@ namespace GenTreesCore.Services
                     if (m is ChildRelationViewModel)
                         (m as ChildRelationViewModel).SecondParentId = GetDBId((m as ChildRelationViewModel).SecondParentId ?? 0);
 
-                    AddEntity(converter.ToEntity(m, tree), x => entity.Relations.Add(x), x => x.Id, m.Id);
+                    AddEntity(converter.ToEntity(m, tree), x => entity.Relations.Add(x), x => x.Id, x => m.Id = x, m.Id);
                 },
                 update: (e, m) => converter.ApplyModelData(e, m),
-                delete: e => db.Set<Relation>().Remove(e));
+                delete: e => entity.Relations.Remove(e));
         }
 
         public void UpdateDateTimeSetting(GenTreeDateTimeSetting entity, GenTreeDateTimeSetting model)
@@ -111,8 +125,10 @@ namespace GenTreesCore.Services
             converter.ApplyModelData(entity, model);
 
             //обновление списка эр
-            ApplyChanges(entity.Eras, model.Eras, e => e.Id, n => model.Id,
-                add: m => AddEntity(m, x => entity.Eras.Add(x), x => x.Id, m.Id),
+            if (entity.Eras == null && model.Eras != null)
+                entity.Eras = new List<GenTreeEra>();
+            ApplyChanges(entity.Eras, model.Eras, e => e.Id, m => m.Id,
+                add: m => AddEntity(m, x => entity.Eras.Add(x), x => x.Id, x => m.Id = x, m.Id),
                 update: (e, m) => converter.ApplyModelData(e, m),
                 delete: e => db.Set<GenTreeEra>().Remove(e));
         }
@@ -133,6 +149,9 @@ namespace GenTreesCore.Services
                     add(model);
                 return;
             }
+
+            if (models == null)
+                models = new List<M>(); //такое себе
 
             //формируем коллекцию пар entity-viewmodel
             var collection = from model in models
@@ -160,7 +179,7 @@ namespace GenTreesCore.Services
                 delete(element);
         }
 
-        public void AddEntity<E>(E entity, Action<E> add, Func<E, int> idSelector, int? id = null)
+        public void AddEntity<E>(E entity, Action<E> add, Func<E, int> idSelector, Action<int> idReplacement = null, int? id = null)
         {
             //запоминаем старый Id
             var oldId = id ?? idSelector(entity);
@@ -170,6 +189,8 @@ namespace GenTreesCore.Services
                 add(entity);
                 db.SaveChanges();
                 updateResult.Replacements[oldId] = idSelector(entity);
+                if (idReplacement != null)
+                    idReplacement(idSelector(entity));
             }
             catch
             {

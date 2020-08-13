@@ -125,14 +125,12 @@ namespace GenTreesCore.Services
                     IsFinished = (model as SpouseRelationViewModel).IsFinished
                 };
             else if (model.GetType() == typeof(ChildRelationViewModel))
-            {
                 return new ChildRelation
                 {
                     TargetPerson = tree.Persons.FirstOrDefault(p => p.Id == model.TargetPersonId),
                     RelationRate = (RelationRate)Enum.Parse(typeof(RelationRate), (model as ChildRelationViewModel).RelationRate),
                     SecondParent = tree.Persons.FirstOrDefault(p => p.Id == (model as ChildRelationViewModel).SecondParentId)
                 };
-            }
             else return null;
         }
         #endregion
@@ -152,6 +150,7 @@ namespace GenTreesCore.Services
             entity.LastName = model.LastName;
             entity.FirstName = model.FirstName;
             entity.MiddleName = model.MiddleName;
+            entity.BirthPlace = model.BirthPlace;
             entity.Biography = model.Biography;
             entity.Gender = model.Gender;
             entity.Image = model.Image;
@@ -212,6 +211,8 @@ namespace GenTreesCore.Services
 
         public void ApplyModelData(GenTreeDateTimeSetting entity, GenTreeDateTimeSetting model)
         {
+            if (entity == null || model == null)
+                return;
             entity.Name = model.Name;
             entity.IsPrivate = model.IsPrivate;
             entity.YearMonthCount = model.YearMonthCount;
@@ -219,6 +220,8 @@ namespace GenTreesCore.Services
 
         public void ApplyModelData(GenTreeEra entity, GenTreeEra model)
         {
+            if (entity == null || model == null)
+                return;
             entity.Name = model.Name;
             entity.ShortName = model.ShortName;
             entity.Description = model.Description;
