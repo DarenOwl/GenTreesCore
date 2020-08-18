@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using GenTreesCore.Entities;
 using GenTreesCore.Models;
@@ -21,8 +22,11 @@ namespace GenTreesCore.Services
                 DateCreated = tree.DateCreated.ToString("d/MM/yyyy"),
                 LastUpdated = tree.LastUpdated.ToString("d/MM/yyyy"),
                 Image = tree.Image,
-                DescriptionTemplates = tree.CustomPersonDescriptionTemplates
+                DescriptionTemplates = tree.CustomPersonDescriptionTemplates,
+                DateTimeSetting = tree.GenTreeDateTimeSetting
             };
+
+            treeModel.DateTimeSetting.Owner = null;
 
             if (tree.Persons != null)
                 treeModel.Persons = tree.Persons.Select(p => ToViewModel(p)).ToList();
@@ -198,7 +202,10 @@ namespace GenTreesCore.Services
 
         public void ApplyModelData(GenTreeDateTime entity, GenTreeDateViewModel model, GenTree tree)
         {
-            if (model == null || entity == null) return;
+            if (model == null || entity == null 
+                || tree.GenTreeDateTimeSetting == null 
+                || tree.GenTreeDateTimeSetting.Eras == null) 
+                return;
             entity.Era = tree.GenTreeDateTimeSetting.Eras.FirstOrDefault(era => era.Id == model.EraId);
             if (entity.Era == null) return;
             entity.Year = model.Year;
