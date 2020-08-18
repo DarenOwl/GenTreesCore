@@ -1,5 +1,6 @@
 ﻿using GenTreesCore.Entities;
 using GenTreesCore.Models;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -49,6 +50,32 @@ namespace GenTreesCore.Services
                     if (entity.Owner.Id == tree.Owner.Id) /*если есть права - обновляем*/
                         UpdateDateTimeSetting(entity, model);
                 }
+            }
+        }
+
+        public void ApplyDateTimeSettingMigrations(GenTreeDateTimeSetting oldSetting, GenTreeDateTimeSetting newSetting, List<GenTreeDateViewModel> dates)
+        {
+            var invaidDates = new List<GenTreeDateViewModel>();
+            foreach (var date in dates)
+            {
+                /*если дата найдена в новом сеттинге - проблем нет*/
+                if (newSetting.Eras?.FirstOrDefault(era => era.Id == GetDBId(date.EraId)) != null)
+                    continue;
+                /*иначе пытаемся найти дату в старом сеттинге и спроецировать на новый - пока только в годах*/
+                var era = oldSetting.Eras?.FirstOrDefault(e => e.Id == date.EraId);
+                if (era == null)
+                {
+                    invaidDates.Add(date);
+                    continue;
+                }
+                era = newSetting.Eras.FirstOrDefault(e => e.ThroughBeginYear <= era.ThroughBeginYear
+                    && (e.ThroughBeginYear + e.YearCount) >= (era.ThroughBeginYear + era.YearCount));
+                if (era == null)
+                {
+                    invaidDates.Add(date);
+                    continue;
+                }
+                date.EraId = era.Id;
             }
         }
 
@@ -109,10 +136,8 @@ namespace GenTreesCore.Services
         public void UpdatePerson(Person entity, PersonViewModel model, GenTree tree)
         {
             //производим замены id в моделях дат перед применением модели
-            if (model.BirthDate != null)
-                model.BirthDate.EraId = GetDBId(model.BirthDate.EraId);
-            if (model.DeathDate != null)
-                model.DeathDate.EraId = GetDBId(model.DeathDate.EraId);
+            model.BirthDate = UpdateDateModel(model.BirthDate, tree.GenTreeDateTimeSetting);
+            model.DeathDate = UpdateDateModel(model.DeathDate, tree.GenTreeDateTimeSetting);
             //копируем данные модели
             converter.ApplyModelData(entity, model, tree);
             //обновление пользовательских описаний (сопоставление по Id шаблона)
@@ -125,15 +150,22 @@ namespace GenTreesCore.Services
             converter.ApplyModelData(entity, model);
 
             //обновление списка эр
-            if (model.Eras == null)
-                entity.Eras = null;
+            if (entity.Eras == null)
+                entity.Eras = new List<GenTreeEra>();
+            ApplyChanges(entity.Eras, model.Eras, e => e.Id, m => m.Id,
+            add: m => AddEra(m, entity),
+            update: (e, m) => converter.ApplyModelData(e, m),
+            delete: e => db.Set<GenTreeEra>().Remove(e));
+        }
+
+        public GenTreeDateViewModel UpdateDateModel(GenTreeDateViewModel date, GenTreeDateTimeSetting setting)
+        {
+            if (date == null) return null;
+            date.EraId = GetDBId(date.EraId);
+            if (setting.Eras?.FirstOrDefault(era => era.Id == date.EraId) != null)
+                return date;
             else
-            {
-                ApplyChanges(entity.Eras ?? new List<GenTreeEra>(), model.Eras, e => e.Id, m => m.Id,
-                add: m => AddEra(m, entity),
-                update: (e, m) => converter.ApplyModelData(e, m),
-                delete: e => db.Set<GenTreeEra>().Remove(e));
-            }
+                return null;
         }
 
         #endregion
@@ -176,8 +208,8 @@ namespace GenTreesCore.Services
         public void AddPerson(PersonViewModel model, GenTree tree)
         {
             var person = new Person();
-            if (model.BirthDate != null) model.BirthDate.EraId = GetDBId(model.BirthDate.EraId);
-            if (model.DeathDate != null) model.DeathDate.EraId = GetDBId(model.DeathDate.EraId);
+            model.BirthDate = UpdateDateModel(model.BirthDate, tree.GenTreeDateTimeSetting);
+            model.DeathDate = UpdateDateModel(model.DeathDate, tree.GenTreeDateTimeSetting);
             converter.ApplyModelData(person, model, tree);
             AddEntity(person, pers => tree.Persons.Add(pers), pers => pers.Id, model.Id,
                 onErrorDelete: pers => tree.Persons.Remove(pers));
@@ -215,8 +247,8 @@ namespace GenTreesCore.Services
         /// <typeparam name="E">Модель данных</typeparam>
         /// <typeparam name="M">Модель представления</typeparam>
         /// <typeparam name="TKey">Ключ для сравнения</typeparam>
-        public void ApplyChanges<E, M, TKey>(IEnumerable<E> entities, IEnumerable<M> models,
-            Func<E, TKey> entityKeySelector, Func<M, TKey> modelKeySelector,
+        public void ApplyChanges<E, M>(IEnumerable<E> entities, IEnumerable<M> models,
+            Func<E, int> entityKeySelector, Func<M, int> modelKeySelector,
             Action<M> add, Action<E, M> update, Action<E> delete)
         {
             if (models == null)
@@ -243,7 +275,7 @@ namespace GenTreesCore.Services
 
             //удаляем элементы, которые были удалены из модели
             var forDelete = entities
-                .Where(e => models.FirstOrDefault(m => modelKeySelector(m).Equals(entityKeySelector(e))) == null).ToList();
+                .Where(e => models.FirstOrDefault(m => GetDBId(modelKeySelector(m))== entityKeySelector(e)) == null).ToList();
             foreach (var element in forDelete)
             {
                 entities.ToList().Remove(element);

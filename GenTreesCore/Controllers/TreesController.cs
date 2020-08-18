@@ -107,7 +107,7 @@ namespace GenTreesCore.Controllers
                 return BadRequest($"Invalid data caused a server error: {e.Message}");
             }
             treesService.SaveChanges();
-            return Ok(result);
+            return Ok(JsonConvert.SerializeObject(result));
         }
 
         [HttpPost]
