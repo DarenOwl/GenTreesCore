@@ -115,7 +115,7 @@ namespace GenTreesCore.Services
         public Person ToEntity(PersonViewModel model, GenTree tree)
         {
             var entity = new Person();
-            ApplyModelData(entity, model, tree);
+            ApplyModelData(entity, model);
             return entity;
         }
 
@@ -149,7 +149,7 @@ namespace GenTreesCore.Services
             entity.Image = model.Image;
         }
 
-        public void ApplyModelData(Person entity, PersonViewModel model, GenTree tree)
+        public void ApplyModelData(Person entity, PersonViewModel model)
         {
             entity.LastName = model.LastName;
             entity.FirstName = model.FirstName;
@@ -158,26 +158,6 @@ namespace GenTreesCore.Services
             entity.Biography = model.Biography;
             entity.Gender = model.Gender;
             entity.Image = model.Image;
-
-            //обновляем дату рождения
-            if (model.BirthDate == null)
-                entity.BirthDate = null;
-            else
-            {
-                if (entity.BirthDate == null)
-                    entity.BirthDate = new GenTreeDateTime();
-                ApplyModelData(entity.BirthDate, model.BirthDate, tree);
-            }
-
-            //обновляем дату смерти
-            if (model.DeathDate == null)
-                entity.DeathDate = null;
-            else
-            {
-                if (entity.DeathDate == null)
-                    entity.DeathDate = new GenTreeDateTime();
-                ApplyModelData(entity.DeathDate, model.DeathDate, tree);
-            }
         }
 
         public void ApplyModelData(CustomPersonDescription entity, CustomPersonDescription model)

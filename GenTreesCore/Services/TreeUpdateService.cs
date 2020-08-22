@@ -35,10 +35,11 @@ namespace GenTreesCore.Services
         public void ApplyDateTimeSetting(GenTreeDateTimeSetting model, GenTree tree)
         {
             if (model == null)
-                tree.GenTreeDateTimeSetting = null;
+                return;
             else
             {
                 /*сначала проверяем, есть ли в БД сеттинг летоисчисления с таким ID*/
+                /*косяк - сеттинг может быть со случайным ID, но выберем существующий*/
                 var entity = db.GenTreeDateTimeSettings.FirstOrDefault(setting => setting.Id == model.Id
                     && (!setting.IsPrivate || tree.Owner.Id == setting.Owner.Id)); /*проверяем, есть ли доступ к летоисчислению*/
 
@@ -50,32 +51,6 @@ namespace GenTreesCore.Services
                     if (entity.Owner.Id == tree.Owner.Id) /*если есть права - обновляем*/
                         UpdateDateTimeSetting(entity, model);
                 }
-            }
-        }
-
-        public void ApplyDateTimeSettingMigrations(GenTreeDateTimeSetting oldSetting, GenTreeDateTimeSetting newSetting, List<GenTreeDateViewModel> dates)
-        {
-            var invaidDates = new List<GenTreeDateViewModel>();
-            foreach (var date in dates)
-            {
-                /*если дата найдена в новом сеттинге - проблем нет*/
-                if (newSetting.Eras?.FirstOrDefault(era => era.Id == GetDBId(date.EraId)) != null)
-                    continue;
-                /*иначе пытаемся найти дату в старом сеттинге и спроецировать на новый - пока только в годах*/
-                var era = oldSetting.Eras?.FirstOrDefault(e => e.Id == date.EraId);
-                if (era == null)
-                {
-                    invaidDates.Add(date);
-                    continue;
-                }
-                era = newSetting.Eras.FirstOrDefault(e => e.ThroughBeginYear <= era.ThroughBeginYear
-                    && (e.ThroughBeginYear + e.YearCount) >= (era.ThroughBeginYear + era.YearCount));
-                if (era == null)
-                {
-                    invaidDates.Add(date);
-                    continue;
-                }
-                date.EraId = era.Id;
             }
         }
 
@@ -133,13 +108,30 @@ namespace GenTreesCore.Services
             var stop = 0;
         }
 
+        public GenTreeDateTime ApplyDate(GenTreeDateTime date, GenTreeDateViewModel model, GenTree tree)
+        {
+            /*находим соответствующую дате эру*/
+            var era = tree.GenTreeDateTimeSetting.Eras.FirstOrDefault(e => e.Id == GetDBId(model.EraId));
+            /*временная мера, "конвертирующщая" дату в новый сеттинг (пока просто берем первую попавшуюся эру)*/
+            if (era == null) era = tree.GenTreeDateTimeSetting.Eras.FirstOrDefault();
+            /*если дату не удалось сконвертировать - удаляем как недействительную*/
+            if (era == null)
+            {
+                db.Set<GenTreeDateTime>().Remove(date);
+                return null;
+            }
+            if (date == null)
+                date = new GenTreeDateTime();
+            converter.ApplyModelData(date, model, tree);
+            return date;
+        }
+
         public void UpdatePerson(Person entity, PersonViewModel model, GenTree tree)
         {
-            //производим замены id в моделях дат перед применением модели
-            model.BirthDate = UpdateDateModel(model.BirthDate, tree.GenTreeDateTimeSetting);
-            model.DeathDate = UpdateDateModel(model.DeathDate, tree.GenTreeDateTimeSetting);
+            entity.BirthDate = ApplyDate(entity.BirthDate, model.BirthDate, tree);
+            entity.DeathDate = ApplyDate(entity.DeathDate, model.DeathDate, tree);
             //копируем данные модели
-            converter.ApplyModelData(entity, model, tree);
+            converter.ApplyModelData(entity, model);
             //обновление пользовательских описаний (сопоставление по Id шаблона)
             ApplyCustomDescriptions(model.CustomDescriptions, entity, tree.CustomPersonDescriptionTemplates);
         }
@@ -156,16 +148,6 @@ namespace GenTreesCore.Services
             add: m => AddEra(m, entity),
             update: (e, m) => converter.ApplyModelData(e, m),
             delete: e => db.Set<GenTreeEra>().Remove(e));
-        }
-
-        public GenTreeDateViewModel UpdateDateModel(GenTreeDateViewModel date, GenTreeDateTimeSetting setting)
-        {
-            if (date == null) return null;
-            date.EraId = GetDBId(date.EraId);
-            if (setting.Eras?.FirstOrDefault(era => era.Id == date.EraId) != null)
-                return date;
-            else
-                return null;
         }
 
         #endregion
@@ -201,17 +183,19 @@ namespace GenTreesCore.Services
         {
             var template = new CustomPersonDescriptionTemplate();
             converter.ApplyModelData(template, model);
-            AddEntity(template, t => tree.CustomPersonDescriptionTemplates.Add(t), t => t.Id, model.Id,
+            AddEntity(template, 
+                add: t => tree.CustomPersonDescriptionTemplates.Add(t), t => t.Id, model.Id,
                 onErrorDelete: t => tree.CustomPersonDescriptionTemplates.Remove(t));
         }
 
         public void AddPerson(PersonViewModel model, GenTree tree)
         {
             var person = new Person();
-            model.BirthDate = UpdateDateModel(model.BirthDate, tree.GenTreeDateTimeSetting);
-            model.DeathDate = UpdateDateModel(model.DeathDate, tree.GenTreeDateTimeSetting);
-            converter.ApplyModelData(person, model, tree);
-            AddEntity(person, pers => tree.Persons.Add(pers), pers => pers.Id, model.Id,
+            converter.ApplyModelData(person, model);
+            person.BirthDate = ApplyDate(person.BirthDate, model.BirthDate, tree);
+            person.DeathDate = ApplyDate(person.DeathDate, model.DeathDate, tree);
+            AddEntity(person, 
+                add: pers => tree.Persons.Add(pers), pers => pers.Id, model.Id,
                 onErrorDelete: pers => tree.Persons.Remove(pers));
             ApplyCustomDescriptions(model.CustomDescriptions, person, tree.CustomPersonDescriptionTemplates);
         }
