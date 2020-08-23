@@ -14,11 +14,16 @@ namespace GenTreesCore.Controllers
     [Route("{controller}/{action}")]
     public class TreesController : Controller
     {
-        private TreesService treesService;
+        private TreeRepository treesService;
+        private TreeUpdateService updateService;
+        private IDateTimeSettingRepository dateTimeSettingRepository;
 
         public TreesController(ApplicationContext context)
         {
-            treesService = new TreesService(context);        }
+            treesService = new TreeRepository(context);
+            updateService = new TreeUpdateService(context);
+            dateTimeSettingRepository = new DateTimeSettingRepository(context);
+        }
 
         [HttpGet]
         public JsonResult Public()
@@ -97,7 +102,7 @@ namespace GenTreesCore.Controllers
             if (tree == null)
                 return BadRequest($"no tree with id {model.Id} found");
 
-            TreeUpdateResult result;
+            Changes result;
             try
             {
                 result = treesService.Update(tree, model);
@@ -111,18 +116,34 @@ namespace GenTreesCore.Controllers
         }
 
         [HttpPost]
+        public IActionResult AddSetting(GenTreeDateTimeSetting model)
+        {
+            int authorizedUserId;
+            if (HttpContext.User.Identity.IsAuthenticated)
+                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
+            else
+                return BadRequest("not logged in");
+
+            return Ok(JsonConvert.SerializeObject(dateTimeSettingRepository.Add(model, authorizedUserId)));
+        }
+
+        [HttpPost]
+        public IActionResult UpdateSetting(GenTreeDateTimeSetting model)
+        {
+            int authorizedUserId;
+            if (HttpContext.User.Identity.IsAuthenticated)
+                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
+            else
+                return BadRequest("not logged in");
+
+            return Ok(JsonConvert.SerializeObject(dateTimeSettingRepository.Update(model, authorizedUserId)));
+        }
+
+        [HttpPost]
         public IActionResult Update(CustomPersonDescriptionTemplate model)
         {
             treesService.Update(model, model.Id);
             return Ok();
-        }
-
-        private string ShortenDescription(string description, int length)
-        {
-            if (description == null)
-                return null;
-
-            return description.Substring(0, Math.Min(length, description.Length));
         }
     }
 }

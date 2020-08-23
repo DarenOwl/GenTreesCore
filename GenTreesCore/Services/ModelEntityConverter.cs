@@ -137,6 +137,18 @@ namespace GenTreesCore.Services
                 };
             else return null;
         }
+
+        public GenTreeEra ToEntity(GenTreeEra model)
+        {
+            return new GenTreeEra()
+            {
+                Name = model.Name,
+                ShortName = model.ShortName,
+                Description = model.Description,
+                ThroughBeginYear = model.ThroughBeginYear,
+                YearCount = model.YearCount
+            };
+        }
         #endregion
 
         #region ApplyModelData

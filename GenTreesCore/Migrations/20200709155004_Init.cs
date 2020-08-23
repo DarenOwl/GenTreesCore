@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using System;
 
@@ -43,7 +44,7 @@ namespace GenTreesCore.Migrations
                constraints: table =>
                {
                    table.PrimaryKey("PK_GenTreeDateTimeSettings", t => t.Id);
-                   table.ForeignKey("FK_GenTreeDateTimeSettings_Users", t => t.OwnerId, "Users","Id");
+                   table.ForeignKey("FK_GenTreeDateTimeSettings_Users", t => t.OwnerId, "Users","Id", onDelete: ReferentialAction.Cascade);
                });
 
             migrationBuilder.CreateTable(
@@ -62,7 +63,7 @@ namespace GenTreesCore.Migrations
                constraints: table =>
                {
                    table.PrimaryKey("PK_GenTreeEras", t => t.Id);
-                   table.ForeignKey("FK_GenTreeEras_GenTreeDateTimeSettings", t => t.GenTreeDateTimeSettingId, "GenTreeDateTimeSettings", "Id");
+                   table.ForeignKey("FK_GenTreeEras_GenTreeDateTimeSettings", t => t.GenTreeDateTimeSettingId, "GenTreeDateTimeSettings", "Id", onDelete: ReferentialAction.Cascade);
                });
 
             migrationBuilder.CreateTable(
@@ -82,7 +83,7 @@ namespace GenTreesCore.Migrations
                constraints: table =>
                {
                    table.PrimaryKey("PK_GenTreeDates", t => t.Id);
-                   table.ForeignKey("FK_GenTreeDates_GenTreeEras", t => t.EraId, "GenTreeEras", "Id");
+                   table.ForeignKey("FK_GenTreeDates_GenTreeEras", t => t.EraId, "GenTreeEras", "Id", onDelete: ReferentialAction.Cascade);
                });
 
             migrationBuilder.CreateTable(
@@ -105,7 +106,7 @@ namespace GenTreesCore.Migrations
                 {
                     table.PrimaryKey("PK_GenTrees", t => t.Id);
                     table.ForeignKey("FK_GenTrees_DateTimeSettings", t => t.GenTreeDateTimeSettingId, "GenTreeDateTimeSettings", "Id");
-                    table.ForeignKey("FK_GenTrees_Users", t => t.OwnerId, "Users", "Id");
+                    table.ForeignKey("FK_GenTrees_Users", t => t.OwnerId, "Users", "Id", onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -146,7 +147,7 @@ namespace GenTreesCore.Migrations
               constraints: table =>
               {
                   table.PrimaryKey("PK_CustomPersonsDescriptionTemplates", t => t.Id);
-                  table.ForeignKey("FK_CustomPersonsDescriptionTemplates_GenTree", t => t.GenTreeId, "GenTrees", "Id");
+                  table.ForeignKey("FK_CustomPersonsDescriptionTemplates_GenTree", t => t.GenTreeId, "GenTrees", "Id", onDelete: ReferentialAction.Cascade);
               });
 
             migrationBuilder.CreateTable(
@@ -162,8 +163,8 @@ namespace GenTreesCore.Migrations
               constraints: table =>
               {
                   table.PrimaryKey("PK_CustomPersonsDescriptions", t => t.Id);
-                  table.ForeignKey("FK_CustomPersonsDescriptions_Templates", t => t.TemplateId, "CustomPersonDescriptionTemplates", "Id");
-                  table.ForeignKey("FK_CustomPersonsDescriptions_Persons", t => t.PersonId, "Persons", "Id");
+                  table.ForeignKey("FK_CustomPersonsDescriptions_Templates", t => t.TemplateId, "CustomPersonDescriptionTemplates", "Id", onDelete: ReferentialAction.Cascade);
+                  table.ForeignKey("FK_CustomPersonsDescriptions_Persons", t => t.PersonId, "Persons", "Id", onDelete: ReferentialAction.Cascade);
               });
 
             migrationBuilder.CreateTable(

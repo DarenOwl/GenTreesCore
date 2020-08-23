@@ -1,6 +1,7 @@
 ﻿using GenTreesCore.Entities;
 using GenTreesCore.Models;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,7 +11,7 @@ namespace GenTreesCore.Services
 {
     public class TreeUpdateService
     {
-        public TreeUpdateResult UpdateResult { get; private set; }
+        public Changes UpdateResult { get; private set; }
 
         private readonly ApplicationContext db;
         private readonly ModelEntityConverter converter;
@@ -19,7 +20,7 @@ namespace GenTreesCore.Services
         {
             db = context;
             converter = new ModelEntityConverter();
-            UpdateResult = new TreeUpdateResult
+            UpdateResult = new Changes
             {
                 Replacements = new Dictionary<int, int>(),
                 Errors = new List<IdError>()
@@ -28,8 +29,11 @@ namespace GenTreesCore.Services
 
         public void ResetUpdateResult()
         {
-            UpdateResult.Replacements = new Dictionary<int, int>();
-            UpdateResult.Errors = new List<IdError>();
+            UpdateResult = new Changes
+            {
+                Replacements = new Dictionary<int, int>(),
+                Errors = new List<IdError>()
+            };
         }
 
         public void ApplyDateTimeSetting(GenTreeDateTimeSetting model, GenTree tree)
@@ -147,7 +151,12 @@ namespace GenTreesCore.Services
             ApplyChanges(entity.Eras, model.Eras, e => e.Id, m => m.Id,
             add: m => AddEra(m, entity),
             update: (e, m) => converter.ApplyModelData(e, m),
-            delete: e => db.Set<GenTreeEra>().Remove(e));
+            delete: e =>
+            {
+                var invalidDates = db.Set<GenTreeDateTime>().Where(date => date.Era == e);
+                db.Set<GenTreeDateTime>().RemoveRange(invalidDates);
+                db.Set<GenTreeEra>().Remove(e);
+            });
         }
 
         #endregion
@@ -294,6 +303,7 @@ namespace GenTreesCore.Services
     }
 
     public class ModelEntityPair<TEntity, TModel>
+
     {
         public TEntity Entity { get; }
         public TModel Model { get; }

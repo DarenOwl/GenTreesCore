@@ -7,11 +7,22 @@ using System.Linq;
 
 namespace GenTreesCore.Services
 {
-    public class TreesService
+    public interface ITreeRepository
+    {
+        void AddGenTree(int userId, string name, bool isPrivate);
+        GenTree GetGenTree(int treeId);
+        List<GenTree> GetPublicTrees();
+        List<GenTree> GetUserGenTrees(int userId);
+        void SaveChanges();
+        Changes Update(GenTree entity, GenTreeViewModel model);
+        void Update<T>(T entity, int id, bool saveChanges = true);
+    }
+
+    public class TreeRepository : ITreeRepository
     {
         private ApplicationContext db;
 
-        public TreesService(ApplicationContext db)
+        public TreeRepository(ApplicationContext db)
         {
             this.db = db;
         }
@@ -64,7 +75,7 @@ namespace GenTreesCore.Services
             db.SaveChanges();
         }
 
-        public TreeUpdateResult Update(GenTree entity, GenTreeViewModel model)
+        public Changes Update(GenTree entity, GenTreeViewModel model)
         {
             var updateService = new TreeUpdateService(db);
             updateService.UpdateTree(entity, model);

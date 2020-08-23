@@ -65,6 +65,11 @@ namespace GenTreesCore.Entities
         {
             modelBuilder.Entity<GenTreeDateTime>()
                 .ToTable("GenTreeDates");
+
+            modelBuilder.Entity<GenTreeDateTime>()
+                .HasOne(date => date.Era)
+                .WithMany()
+                .OnDelete(DeleteBehavior.Cascade);
         }
 
         private void OnPersonCreating(ModelBuilder modelBuilder)
