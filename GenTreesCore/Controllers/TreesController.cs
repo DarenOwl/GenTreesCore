@@ -14,13 +14,13 @@ namespace GenTreesCore.Controllers
     [Route("{controller}/{action}")]
     public class TreesController : Controller
     {
-        private TreeRepository treesService;
+        private TreeRepository treeRepository;
         private TreeUpdateService updateService;
         private IDateTimeSettingRepository dateTimeSettingRepository;
 
         public TreesController(ApplicationContext context)
         {
-            treesService = new TreeRepository(context);
+            treeRepository = new TreeRepository(context);
             updateService = new TreeUpdateService(context);
             dateTimeSettingRepository = new DateTimeSettingRepository(context);
         }
@@ -28,7 +28,7 @@ namespace GenTreesCore.Controllers
         [HttpGet]
         public JsonResult Public()
         {
-            var trees = treesService.GetPublicTrees()
+            var trees = treeRepository.GetPublicTrees()
                 .Select(tree => new GenTreeSimpleViewModel
                 {
                     Id = tree.Id,
@@ -50,7 +50,7 @@ namespace GenTreesCore.Controllers
             //получаем id авторизованного пользователя
             var authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
             //получаем список всех его деревьев
-            var trees = treesService.GetUserGenTrees(authorizedUserId)
+            var trees = treeRepository.GetUserGenTrees(authorizedUserId)
                 .Select(tree => new MyTreeSimpleViewModel
                 {
                     Id = tree.Id,
@@ -72,7 +72,7 @@ namespace GenTreesCore.Controllers
             if (HttpContext.User.Identity.IsAuthenticated)
                 authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
 
-            var tree = treesService.GetGenTree(id);
+            var tree = treeRepository.GetGenTree(id);
 
             if (tree == null)
                 return BadRequest($"no tree with id {id} found");
@@ -85,6 +85,20 @@ namespace GenTreesCore.Controllers
             return Ok(JsonConvert.SerializeObject(treeModel));
         }
 
+        public IActionResult AddTree(GenTreeViewModel model)
+        {
+            int authorizedUserId;
+            if (HttpContext.User.Identity.IsAuthenticated)
+                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
+            else
+                return BadRequest("not logged in");
+
+            var changes = new Changes();
+            treeRepository.Add(model, authorizedUserId, changes);
+            return Ok(JsonConvert.SerializeObject(changes));
+        }
+
+        /*
         [HttpPost]
         public IActionResult UpdateTree([FromBody]string json)
         {
@@ -98,22 +112,23 @@ namespace GenTreesCore.Controllers
                 return BadRequest($"Invalid json: {e.Message}");
             }
 
-            var tree = treesService.GetGenTree(model.Id);
+            var tree = treeRepository.GetGenTree(model.Id);
             if (tree == null)
                 return BadRequest($"no tree with id {model.Id} found");
 
             Changes result;
             try
             {
-                result = treesService.Update(tree, model);
+                result = treeRepository.Update(tree, model);
             }
             catch (Exception e)
             {
                 return BadRequest($"Invalid data caused a server error: {e.Message}");
             }
-            treesService.SaveChanges();
+            treeRepository.SaveChanges();
             return Ok(JsonConvert.SerializeObject(result));
         }
+        */
 
         [HttpPost]
         public IActionResult AddSetting(GenTreeDateTimeSetting model)
@@ -124,7 +139,9 @@ namespace GenTreesCore.Controllers
             else
                 return BadRequest("not logged in");
 
-            return Ok(JsonConvert.SerializeObject(dateTimeSettingRepository.Add(model, authorizedUserId)));
+            var changes = new Changes();
+            dateTimeSettingRepository.Add(model, authorizedUserId, changes);
+            return Ok(JsonConvert.SerializeObject(changes));
         }
 
         [HttpPost]
@@ -136,13 +153,27 @@ namespace GenTreesCore.Controllers
             else
                 return BadRequest("not logged in");
 
-            return Ok(JsonConvert.SerializeObject(dateTimeSettingRepository.Update(model, authorizedUserId)));
+            var changes = new Changes();
+            dateTimeSettingRepository.Update(model, authorizedUserId, changes);
+            return Ok(JsonConvert.SerializeObject(changes));
+        }
+
+        [HttpPost]
+        public IActionResult UpdateOrAddSetting(GenTreeDateTimeSetting model)
+        {
+            int authorizedUserId;
+            if (HttpContext.User.Identity.IsAuthenticated)
+                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
+            else
+                return BadRequest("not logged in");
+
+            return Ok(JsonConvert.SerializeObject(dateTimeSettingRepository.UpdateOrAdd(model, authorizedUserId)));
         }
 
         [HttpPost]
         public IActionResult Update(CustomPersonDescriptionTemplate model)
         {
-            treesService.Update(model, model.Id);
+            treeRepository.Update(model, model.Id);
             return Ok();
         }
     }

@@ -8,10 +8,21 @@ using GenTreesCore.Entities;
 
 namespace GenTreesCore.Services
 {
+    public interface IUserRepository
+    {
+        bool EmailIsConfirmed(string login);
+        bool EmailIsRegistered(string email);
+        User GetUserById(int id);
+        User GetUserByLogin(string login);
+        User LogIn(string login, string password);
+        bool LoginIsRegistered(string login);
+        void Register(string login, string email, string password);
+    }
+
     /// <summary>
     /// Класс, реализующий действия с пользователями
     /// </summary>
-    public class UserService
+    public class UserService : IUserRepository
     {
         private ApplicationContext db;
 
@@ -44,7 +55,7 @@ namespace GenTreesCore.Services
                     EmailConfirmed = false,
                     DateCreated = DateTime.Now,
                     LastVisit = DateTime.Now,
-                    Role = Role.User 
+                    Role = Role.User
                 });
             db.SaveChangesAsync();
         }

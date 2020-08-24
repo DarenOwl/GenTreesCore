@@ -1,10 +1,11 @@
-﻿using System;
+﻿using GenTreesCore.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace GenTreesCore.Services
 {
-    public abstract class Repository
+    public class Repository
     {
         /// <summary>
         /// Возвращает full join список пар элементов двух коллекций

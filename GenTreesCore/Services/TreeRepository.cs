@@ -9,6 +9,7 @@ namespace GenTreesCore.Services
 {
     public interface ITreeRepository
     {
+        void Add(GenTreeViewModel model, int userId, Changes changes = null);
         void AddGenTree(int userId, string name, bool isPrivate);
         GenTree GetGenTree(int treeId);
         List<GenTree> GetPublicTrees();
@@ -18,13 +19,47 @@ namespace GenTreesCore.Services
         void Update<T>(T entity, int id, bool saveChanges = true);
     }
 
-    public class TreeRepository : ITreeRepository
+    public class TreeRepository : Repository, ITreeRepository
     {
         private ApplicationContext db;
+        private ModelEntityConverter converter;
+        IDateTimeSettingRepository dateTimeSettingRepository;
 
-        public TreeRepository(ApplicationContext db)
+        public TreeRepository(ApplicationContext context)
         {
-            this.db = db;
+            db = context;
+            converter = new ModelEntityConverter();
+            dateTimeSettingRepository = new DateTimeSettingRepository(context);
+        }
+
+        public void Add(GenTreeViewModel model, int userId, Changes changes = null)
+        {
+            var owner = db.Users.FirstOrDefault(u => u.Id == userId);
+
+            if (owner == null)
+            {
+                changes?.Errors.Add(new IdError(userId, "tree must have an owner"));
+                return;
+            }
+
+            var tree = new GenTree();
+            //TODO удалить ковертер и раскидать его методы по репозиториям - все равно не пересекаются
+            converter.ApplyModelData(tree, model);
+            tree.Owner = owner;
+            if (tree.Name == null) tree.Name = "New tree";
+            /*добавление-обновление сеттинга*/
+            if (model.DateTimeSetting == null)
+            {
+                tree.GenTreeDateTimeSetting = dateTimeSettingRepository.GetDefault();
+            }
+            else
+            {
+                tree.GenTreeDateTimeSetting = dateTimeSettingRepository.UpdateOrAdd(model.DateTimeSetting, userId, changes);
+            }
+            tree.DateCreated = DateTime.Now;
+            db.GenTrees.Add(tree);
+            db.SaveChanges();
+            return;
         }
 
         public List<GenTree> GetUserGenTrees(int userId)

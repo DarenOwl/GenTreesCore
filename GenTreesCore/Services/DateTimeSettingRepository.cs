@@ -8,9 +8,11 @@ namespace GenTreesCore.Services
 {
     public interface IDateTimeSettingRepository
     {
-        public Changes Add(GenTreeDateTimeSetting setting, int ownerId);
-        public Changes Update(GenTreeDateTimeSetting setting, int ownerId);
+        public GenTreeDateTimeSetting Add(GenTreeDateTimeSetting setting, int ownerId, Changes changes = null);
+        public GenTreeDateTimeSetting Update(GenTreeDateTimeSetting setting, int userId, Changes changes = null);
+        public GenTreeDateTimeSetting UpdateOrAdd(GenTreeDateTimeSetting setting, int userId, Changes changes = null);
         public GenTreeDateTimeSetting GetSetting(int id, int userId);
+        public GenTreeDateTimeSetting GetDefault();
     }
 
     public class DateTimeSettingRepository : Repository, IDateTimeSettingRepository
@@ -30,15 +32,14 @@ namespace GenTreesCore.Services
         /// <param name="model">модель сеттинга с данными</param>
         /// <param name="ownerId">id пользователя-владельца сеттинга</param>
         /// <returns></returns>
-        public Changes Add(GenTreeDateTimeSetting model, int ownerId)
+        public GenTreeDateTimeSetting Add(GenTreeDateTimeSetting model, int ownerId, Changes changes = null)
         {
-            var changes = new Changes();
             /*поиск пользователя по id*/
             var owner = db.Users.FirstOrDefault(User => User.Id == ownerId);
             if (owner == null)
             {
-                changes.Errors.Add(new IdError(ownerId, "user not found"));
-                return changes;
+                changes?.Errors.Add(new IdError(ownerId, "user not found"));
+                return null;
             }
             //TODO проверка эр
             var setting = new GenTreeDateTimeSetting();
@@ -56,10 +57,10 @@ namespace GenTreesCore.Services
             db.SaveChanges();
             foreach (var era in eras)
             {
-                changes.Replacements[era.Model.Id] = era.Entity.Id;
+                changes?.Replacements.Add(era.Model.Id, era.Entity.Id);
             }
-            changes.Replacements[model.Id] = setting.Id;
-            return changes;
+            changes?.Replacements.Add(model.Id,setting.Id);
+            return setting;
         }
 
         /// <summary>
@@ -68,18 +69,49 @@ namespace GenTreesCore.Services
         /// <param name="model">Модель сеттинга</param>
         /// <param name="userId">Id пользователя, отправившего запрос на обновление</param>
         /// <returns></returns>
-        public Changes Update(GenTreeDateTimeSetting model, int userId)
+        public GenTreeDateTimeSetting Update(GenTreeDateTimeSetting model, int userId, Changes changes = null)
         {
-            var changes = new Changes();
             /*находим нужный сеттинг для обновления*/
             var setting = GetSetting(model.Id, userId);
             if (setting == null)
             {
-                changes.Errors.Add(new IdError(model.Id, "unable to access date-time setting"));
-                return changes;
+                changes?.Errors.Add(new IdError(model.Id, "unable to access date-time setting"));
             }
-            converter.ApplyModelData(setting, model);
+            return setting;
+        }
 
+        public GenTreeDateTimeSetting UpdateOrAdd(GenTreeDateTimeSetting model, int userId, Changes changes = null)
+        {
+            var setting = GetSetting(model.Id, userId);
+            if (setting == null)
+                return Add(model, userId, changes);
+            else
+                return Update(setting, model, changes);
+        }
+
+        /// <summary>
+        /// Получение сеттинга летосчисления
+        /// </summary>
+        /// <param name="id">id сеттинга</param>
+        /// <param name="userId">id пользователя, отправившего запрос на получение дерева</param>
+        /// <returns></returns>
+        public GenTreeDateTimeSetting GetSetting(int id, int userId)
+        {
+            return db.GenTreeDateTimeSettings
+                 .Include(setting => setting.Eras)
+                 .FirstOrDefault(setting => setting.Id == id && userId == setting.Owner.Id);
+        }
+
+        public GenTreeDateTimeSetting GetDefault()
+        {
+            return db.GenTreeDateTimeSettings
+                 .Include(setting => setting.Eras)
+                 .FirstOrDefault(setting => !setting.IsPrivate);
+        }
+
+        private GenTreeDateTimeSetting Update(GenTreeDateTimeSetting setting, GenTreeDateTimeSetting model, Changes changes = null)
+        {
+            converter.ApplyModelData(setting, model);
             /*Обновление эр*/
             if (setting.Eras == null) setting.Eras = new List<GenTreeEra>();
             var eras = FullJoin(setting.Eras, model.Eras, (e, m) => e.Id == m.Id).ToList();
@@ -108,22 +140,9 @@ namespace GenTreesCore.Services
             db.SaveChanges();
             foreach (var replacement in replacements)
             {
-                changes.Replacements[replacement.Key] = replacement.Value.Id;
+                changes?.Replacements.Add(replacement.Key, replacement.Value.Id);
             }
-            return changes;
-        }
-
-        /// <summary>
-        /// Получение сеттинга летосчисления
-        /// </summary>
-        /// <param name="id">id сеттинга</param>
-        /// <param name="userId">id пользователя, отправившего запрос на получение дерева</param>
-        /// <returns></returns>
-        public GenTreeDateTimeSetting GetSetting(int id, int userId)
-        {
-            return db.GenTreeDateTimeSettings
-                 .Include(setting => setting.Eras)
-                 .FirstOrDefault(setting => setting.Id == id && userId == setting.Owner.Id);
+            return setting;
         }
     }
 }
