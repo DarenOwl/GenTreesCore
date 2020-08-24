@@ -24,13 +24,15 @@ namespace GenTreesCore.Services
     {
         private ApplicationContext db;
         private ModelEntityConverter converter;
-        IDateTimeSettingRepository dateTimeSettingRepository;
+        private IDateTimeSettingRepository dateTimeSettingRepository;
+        private IDescriptionTemplateRepository templateRepository;
 
         public TreeRepository(ApplicationContext context)
         {
             db = context;
             converter = new ModelEntityConverter();
             dateTimeSettingRepository = new DateTimeSettingRepository(context);
+            templateRepository = new DescriptionTemplateRepository(context);
         }
 
         public void Add(GenTreeViewModel model, int userId, Changes changes = null)
@@ -86,6 +88,9 @@ namespace GenTreesCore.Services
             {
                 tree.GenTreeDateTimeSetting = dateTimeSettingRepository.UpdateOrAdd(model.DateTimeSetting, userId, changes);
             }
+
+            templateRepository.Update(model.DescriptionTemplates, tree, changes);
+
             db.SaveChanges();
             return;
         }
@@ -120,7 +125,7 @@ namespace GenTreesCore.Services
                     .ThenInclude(p => p.Relations)
                 .Include(t => t.GenTreeDateTimeSetting)
                     .ThenInclude(s => s.Eras)
-                .Where(tree => tree.Id == id && tree.Owner.Id == userId || (!tree.IsPrivate && !forUpdate))
+                .Where(tree => tree.Id == id && (tree.Owner.Id == userId || (!tree.IsPrivate && !forUpdate)))
                 .FirstOrDefault();
         }
 
