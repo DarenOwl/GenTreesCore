@@ -10,8 +10,9 @@ namespace GenTreesCore.Services
     public interface ITreeRepository
     {
         void Add(GenTreeViewModel model, int userId, Changes changes = null);
+        void Update(GenTreeViewModel model, int userId, Changes changes = null);
         void AddGenTree(int userId, string name, bool isPrivate);
-        GenTree GetGenTree(int treeId);
+        GenTree GetTree(int id, int userId, bool forUpdate);
         List<GenTree> GetPublicTrees();
         List<GenTree> GetUserGenTrees(int userId);
         void SaveChanges();
@@ -43,10 +44,12 @@ namespace GenTreesCore.Services
             }
 
             var tree = new GenTree();
+            tree.DateCreated = DateTime.Now;
             //TODO удалить ковертер и раскидать его методы по репозиториям - все равно не пересекаются
             converter.ApplyModelData(tree, model);
             tree.Owner = owner;
             if (tree.Name == null) tree.Name = "New tree";
+
             /*добавление-обновление сеттинга*/
             if (model.DateTimeSetting == null)
             {
@@ -56,8 +59,33 @@ namespace GenTreesCore.Services
             {
                 tree.GenTreeDateTimeSetting = dateTimeSettingRepository.UpdateOrAdd(model.DateTimeSetting, userId, changes);
             }
-            tree.DateCreated = DateTime.Now;
+            
             db.GenTrees.Add(tree);
+            db.SaveChanges();
+            return;
+        }
+
+        public void Update(GenTreeViewModel model, int userId, Changes changes = null)
+        {
+            var tree = GetTree(model.Id, userId, forUpdate: true);
+
+            if (tree == null)
+            {
+                changes?.Errors.Add(new IdError(model.Id, $"tree with id {model.Id} not found"));
+                return;
+            }
+
+            converter.ApplyModelData(tree, model);
+            if (tree.Name == null) tree.Name = "family tree";
+            /*добавление-обновление сеттинга*/
+            if (model.DateTimeSetting == null)
+            {
+                tree.GenTreeDateTimeSetting = dateTimeSettingRepository.GetDefault();
+            }
+            else
+            {
+                tree.GenTreeDateTimeSetting = dateTimeSettingRepository.UpdateOrAdd(model.DateTimeSetting, userId, changes);
+            }
             db.SaveChanges();
             return;
         }
@@ -77,7 +105,7 @@ namespace GenTreesCore.Services
                 .ToList();
         }
 
-        public GenTree GetGenTree(int treeId)
+        public GenTree GetTree(int id, int userId, bool forUpdate)
         {
             return db.GenTrees
                 .Include(t => t.Owner)
@@ -92,7 +120,7 @@ namespace GenTreesCore.Services
                     .ThenInclude(p => p.Relations)
                 .Include(t => t.GenTreeDateTimeSetting)
                     .ThenInclude(s => s.Eras)
-                .Where(t => t.Id == treeId)
+                .Where(tree => tree.Id == id && tree.Owner.Id == userId || (!tree.IsPrivate && !forUpdate))
                 .FirstOrDefault();
         }
 

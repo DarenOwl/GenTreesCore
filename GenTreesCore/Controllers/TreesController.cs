@@ -14,7 +14,7 @@ namespace GenTreesCore.Controllers
     [Route("{controller}/{action}")]
     public class TreesController : Controller
     {
-        private TreeRepository treeRepository;
+        private ITreeRepository treeRepository;
         private TreeUpdateService updateService;
         private IDateTimeSettingRepository dateTimeSettingRepository;
 
@@ -68,16 +68,11 @@ namespace GenTreesCore.Controllers
         [HttpGet]
         public IActionResult GenTree(int id)
         {
-            int? authorizedUserId = null;
-            if (HttpContext.User.Identity.IsAuthenticated)
-                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
-
-            var tree = treeRepository.GetGenTree(id);
+            int authorizedUserId = GetAuthorizedUserId();
+            var tree = treeRepository.GetTree(id, authorizedUserId, forUpdate: false);
 
             if (tree == null)
-                return BadRequest($"no tree with id {id} found");
-            if (tree.IsPrivate && tree.Owner.Id != authorizedUserId)
-                return BadRequest("access denied");
+                return BadRequest($"Unable to access tree with id {id}");
 
             var treeModel = new ModelEntityConverter().ToViewModel(tree);
             treeModel.CanEdit = tree.Owner.Id == authorizedUserId;
@@ -87,14 +82,23 @@ namespace GenTreesCore.Controllers
 
         public IActionResult AddTree(GenTreeViewModel model)
         {
-            int authorizedUserId;
-            if (HttpContext.User.Identity.IsAuthenticated)
-                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
-            else
+            int authorizedUserId = GetAuthorizedUserId();
+            if (authorizedUserId == 0)
                 return BadRequest("not logged in");
 
             var changes = new Changes();
             treeRepository.Add(model, authorizedUserId, changes);
+            return Ok(JsonConvert.SerializeObject(changes));
+        }
+
+        public IActionResult UpdateTree(GenTreeViewModel model)
+        {
+            int authorizedUserId = GetAuthorizedUserId();
+            if (authorizedUserId == 0)
+                return BadRequest("not logged in");
+
+            var changes = new Changes();
+            treeRepository.Update(model, authorizedUserId, changes);
             return Ok(JsonConvert.SerializeObject(changes));
         }
 
@@ -175,6 +179,14 @@ namespace GenTreesCore.Controllers
         {
             treeRepository.Update(model, model.Id);
             return Ok();
+        }
+
+        private int GetAuthorizedUserId()
+        {
+            int authorizedUserId = 0;
+            if (HttpContext.User.Identity.IsAuthenticated)
+                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
+            return authorizedUserId;
         }
     }
 }
