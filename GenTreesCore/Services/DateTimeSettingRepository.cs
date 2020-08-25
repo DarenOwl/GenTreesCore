@@ -8,85 +8,73 @@ namespace GenTreesCore.Services
 {
     public interface IDateTimeSettingRepository
     {
-        public GenTreeDateTimeSetting Add(GenTreeDateTimeSetting setting, int ownerId, Changes changes = null);
-        public GenTreeDateTimeSetting Update(GenTreeDateTimeSetting setting, int userId, Changes changes = null);
-        public GenTreeDateTimeSetting UpdateOrAdd(GenTreeDateTimeSetting setting, int userId, Changes changes = null);
-        public GenTreeDateTimeSetting GetSetting(int id, int userId);
-        public GenTreeDateTimeSetting GetDefault();
+        GenTreeDateTimeSetting Add(GenTreeDateTimeSetting model, int userId, Dictionary<int, IIdentified> replacements);
+        void Update(GenTreeDateTimeSetting setting, GenTreeDateTimeSetting model, Dictionary<int, IIdentified> replacements);
+        GenTreeDateTimeSetting UpdateOrAdd(GenTreeDateTimeSetting model, int userId, Dictionary<int, IIdentified> replacements);
+        GenTreeDateTimeSetting GetDefault();
+        GenTreeDateTimeSetting GetSetting(int id, int userId);
     }
 
     public class DateTimeSettingRepository : Repository, IDateTimeSettingRepository
     {
         private ApplicationContext db;
+        private IEraRepository eraRepository;
         private ModelEntityConverter converter;
 
         public DateTimeSettingRepository(ApplicationContext context)
         {
             db = context;
             converter = new ModelEntityConverter();
+            eraRepository = new EraRepository(context);
         }
 
-        /// <summary>
-        /// Добавление нового сеттинга летоисчисления
-        /// </summary>
-        /// <param name="model">модель сеттинга с данными</param>
-        /// <param name="ownerId">id пользователя-владельца сеттинга</param>
-        /// <returns></returns>
-        public GenTreeDateTimeSetting Add(GenTreeDateTimeSetting model, int ownerId, Changes changes = null)
+        public GenTreeDateTimeSetting UpdateOrAdd(GenTreeDateTimeSetting model, int userId, Dictionary<int, IIdentified> replacements)
+        {
+            var setting = GetSetting(model.Id, userId);
+            if (setting == null)
+                return Add(model, userId, replacements);
+
+            Update(setting, model, replacements);
+            return setting;
+        }
+
+        public GenTreeDateTimeSetting Add(GenTreeDateTimeSetting model, int userId, Dictionary<int, IIdentified> replacements)
         {
             /*поиск пользователя по id*/
-            var owner = db.Users.FirstOrDefault(User => User.Id == ownerId);
+            var owner = db.Users.FirstOrDefault(User => User.Id == userId);
             if (owner == null)
             {
-                changes?.Errors.Add(new IdError(ownerId, "user not found"));
+                //TODO ошибка
                 return null;
             }
-            //TODO проверка эр
-            var setting = new GenTreeDateTimeSetting();
-            converter.ApplyModelData(setting, model) ;
+
+            var setting = new GenTreeDateTimeSetting()
+            {
+                Name = model.Name,
+                IsPrivate = model.IsPrivate,
+                Owner = owner,
+                YearMonthCount = model.YearMonthCount,
+                Eras = new List<GenTreeEra>()
+            };
+            replacements[model.Id] = setting;
+
+            if (model.Eras != null)
+                foreach (var eraModel in model.Eras)
+                {
+                    replacements[eraModel.Id] = eraRepository.Add(eraModel, setting);
+                }
+
             db.GenTreeDateTimeSettings.Add(setting);
-            setting.Owner = owner;
-            setting.Eras = new List<GenTreeEra>();
-            /*Добавление эр*/
-            var eras = model.Eras.Select(era => new ModelEntityPair<GenTreeEra,GenTreeEra>(new GenTreeEra(), era)).ToList();
-            foreach (var era in eras)
-            {
-                converter.ApplyModelData(era.Entity, era.Model);
-                setting.Eras.Add(era.Entity);
-            }
-            db.SaveChanges();
-            foreach (var era in eras)
-            {
-                changes?.Replacements.Add(era.Model.Id, era.Entity.Id);
-            }
-            changes?.Replacements.Add(model.Id,setting.Id);
             return setting;
         }
 
-        /// <summary>
-        /// Обновление сеттинга летосчисления, включая даты
-        /// </summary>
-        /// <param name="model">Модель сеттинга</param>
-        /// <param name="userId">Id пользователя, отправившего запрос на обновление</param>
-        /// <returns></returns>
-        public GenTreeDateTimeSetting Update(GenTreeDateTimeSetting model, int userId, Changes changes = null)
+        public void Update(GenTreeDateTimeSetting setting, GenTreeDateTimeSetting model, Dictionary<int, IIdentified> replacements)
         {
-            /*находим нужный сеттинг для обновления*/
-            var setting = GetSetting(model.Id, userId);
-            if (setting == null)
-            {
-                changes?.Errors.Add(new IdError(model.Id, "unable to access date-time setting"));
-            }
-            return setting;
-        }
+            setting.Name = model.Name; //TODO проверка на null
+            setting.IsPrivate = model.IsPrivate;
+            setting.YearMonthCount = model.YearMonthCount;
 
-        public GenTreeDateTimeSetting UpdateOrAdd(GenTreeDateTimeSetting model, int userId, Changes changes = null)
-        {
-            var setting = GetSetting(model.Id, userId);
-            if (setting == null)
-                return Add(model, userId, changes);
-            else
-                return Update(setting, model, changes);
+            UpdateEras(model.Eras, setting, replacements);
         }
 
         /// <summary>
@@ -109,40 +97,16 @@ namespace GenTreesCore.Services
                  .FirstOrDefault(setting => !setting.IsPrivate);
         }
 
-        private GenTreeDateTimeSetting Update(GenTreeDateTimeSetting setting, GenTreeDateTimeSetting model, Changes changes = null)
+        private void UpdateEras(List<GenTreeEra> models, GenTreeDateTimeSetting setting, Dictionary<int, IIdentified> replacements)
         {
-            converter.ApplyModelData(setting, model);
-            /*Обновление эр*/
-            if (setting.Eras == null) setting.Eras = new List<GenTreeEra>();
-            var eras = FullJoin(setting.Eras, model.Eras, (e, m) => e.Id == m.Id).ToList();
-            var replacements = new Dictionary<int, GenTreeEra>();
+            if (setting.Eras == null)
+                setting.Eras = new List<GenTreeEra>();
 
-            foreach (var era in eras)
-            {
-                if (era.Entity == null) /*Add*/
-                {
-                    var entity = new GenTreeEra();
-                    converter.ApplyModelData(entity, era.Model);
-                    setting.Eras.Add(entity);
-                    replacements[era.Model.Id] = entity;
-                }
-                else if (era.Model == null) /*Delete*/
-                {
-                    //TODO удаление или изменение дат, завязанных на эру
-                    setting.Eras.Remove(era.Entity);
-                    db.Set<GenTreeEra>().Remove(era.Entity);
-                }
-                else /*Update*/
-                {
-                    converter.ApplyModelData(era.Entity, era.Model);
-                }
-            }
-            db.SaveChanges();
-            foreach (var replacement in replacements)
-            {
-                changes?.Replacements.Add(replacement.Key, replacement.Value.Id);
-            }
-            return setting;
+            UpdateRange(
+                fulljoin: FullJoin(setting.Eras, models, (e, m) => e.Id == m.Id).ToList(),
+                add: model => replacements[model.Id] = eraRepository.Add(model, setting),
+                delete: era => eraRepository.Delete(era, setting),
+                update: (era, model) => eraRepository.Update(era, model));
         }
     }
 }

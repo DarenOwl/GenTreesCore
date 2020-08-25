@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 using GenTreesCore.Services;
 using System;
+using System.Collections.Generic;
 
 namespace GenTreesCore.Controllers
 {
@@ -68,7 +69,10 @@ namespace GenTreesCore.Controllers
         [HttpGet]
         public IActionResult GenTree(int id)
         {
-            int authorizedUserId = GetAuthorizedUserId();
+            int authorizedUserId = 0;
+            if (HttpContext.User.Identity.IsAuthenticated)
+                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
+
             var tree = treeRepository.GetTree(id, authorizedUserId, forUpdate: false);
 
             if (tree == null)
@@ -82,96 +86,28 @@ namespace GenTreesCore.Controllers
 
         public IActionResult AddTree(GenTreeViewModel model)
         {
-            int authorizedUserId = GetAuthorizedUserId();
-            if (authorizedUserId == 0)
-                return BadRequest("not logged in");
-
-            var changes = new Changes();
-            treeRepository.Add(model, authorizedUserId, changes);
-            return Ok(JsonConvert.SerializeObject(changes));
+            return ProcessDBOperation((userId, replacements) =>
+                treeRepository.Add(model, userId, replacements));
         }
 
         public IActionResult UpdateTree(GenTreeViewModel model)
         {
-            int authorizedUserId = GetAuthorizedUserId();
-            if (authorizedUserId == 0)
-                return BadRequest("not logged in");
-
-            var changes = new Changes();
-            treeRepository.Update(model, authorizedUserId, changes);
-            return Ok(JsonConvert.SerializeObject(changes));
+            return ProcessDBOperation((userId, replacements) =>
+                treeRepository.Update(model, userId, replacements));
         }
-
-        /*
-        [HttpPost]
-        public IActionResult UpdateTree([FromBody]string json)
-        {
-            GenTreeViewModel model;
-            try
-            {
-                model = JsonConvert.DeserializeObject<GenTreeViewModel>(json, new RelationViewModelJsonConverter());
-            }
-            catch (Exception e)
-            {
-                return BadRequest($"Invalid json: {e.Message}");
-            }
-
-            var tree = treeRepository.GetGenTree(model.Id);
-            if (tree == null)
-                return BadRequest($"no tree with id {model.Id} found");
-
-            Changes result;
-            try
-            {
-                result = treeRepository.Update(tree, model);
-            }
-            catch (Exception e)
-            {
-                return BadRequest($"Invalid data caused a server error: {e.Message}");
-            }
-            treeRepository.SaveChanges();
-            return Ok(JsonConvert.SerializeObject(result));
-        }
-        */
 
         [HttpPost]
         public IActionResult AddSetting(GenTreeDateTimeSetting model)
         {
-            int authorizedUserId;
-            if (HttpContext.User.Identity.IsAuthenticated)
-                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
-            else
-                return BadRequest("not logged in");
-
-            var changes = new Changes();
-            dateTimeSettingRepository.Add(model, authorizedUserId, changes);
-            return Ok(JsonConvert.SerializeObject(changes));
-        }
-
-        [HttpPost]
-        public IActionResult UpdateSetting(GenTreeDateTimeSetting model)
-        {
-            int authorizedUserId;
-            if (HttpContext.User.Identity.IsAuthenticated)
-                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
-            else
-                return BadRequest("not logged in");
-
-            var changes = new Changes();
-            dateTimeSettingRepository.Update(model, authorizedUserId, changes);
-            return Ok(JsonConvert.SerializeObject(changes));
+            return ProcessDBOperation((userId, replacements) =>
+                dateTimeSettingRepository.Add(model, userId, replacements));
         }
 
         [HttpPost]
         public IActionResult UpdateOrAddSetting(GenTreeDateTimeSetting model)
         {
-            int authorizedUserId;
-            if (HttpContext.User.Identity.IsAuthenticated)
-                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
-            else
-                return BadRequest("not logged in");
-
-            return Ok(JsonConvert.SerializeObject(dateTimeSettingRepository.UpdateOrAdd(model, authorizedUserId)));
+            return ProcessDBOperation((userId, replacements) =>
+                dateTimeSettingRepository.UpdateOrAdd(model, userId, replacements));
         }
 
         [HttpPost]
@@ -181,12 +117,32 @@ namespace GenTreesCore.Controllers
             return Ok();
         }
 
-        private int GetAuthorizedUserId()
+        /// <summary>
+        /// Выполняет проверку авторизации и действие с базой данных, требующее id авторизованного пользователя и заполняющее словарь изменений
+        /// </summary>
+        /// <param name="DBaction">Действие с базой данных, в который передается id авторизованного пользователя и словарь замен</param>
+        /// <returns>
+        /// <list type="bullet">
+        /// <item>BadRequest, если пользователь не авторизован;</item>
+        /// <item>Ok со списком ошибок и замен в body после выполнения действия с БД</item>
+        /// </list>
+        /// </returns>
+        private IActionResult ProcessDBOperation(Action<int, Dictionary<int, IIdentified>> DBaction)
         {
-            int authorizedUserId = 0;
+            int authorizedUserId;
             if (HttpContext.User.Identity.IsAuthenticated)
                 authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
-            return authorizedUserId;
+            else
+                return BadRequest("not logged in");
+
+            var replacements = new Dictionary<int, IIdentified>();
+            DBaction(authorizedUserId, replacements);
+
+            return Ok(JsonConvert.SerializeObject(
+                new Changes 
+                { 
+                    Replacements = replacements.ToDictionary(x => x.Key, x => x.Value.Id) 
+                }));
         }
     }
 }

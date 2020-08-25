@@ -9,8 +9,8 @@ namespace GenTreesCore.Services
 {
     public interface ITreeRepository
     {
-        void Add(GenTreeViewModel model, int userId, Changes changes = null);
-        void Update(GenTreeViewModel model, int userId, Changes changes = null);
+        void Add(GenTreeViewModel model, int userId, Dictionary<int, IIdentified> replacements);
+        void Update(GenTreeViewModel model, int userId, Dictionary<int, IIdentified> replacements);
         void AddGenTree(int userId, string name, bool isPrivate);
         GenTree GetTree(int id, int userId, bool forUpdate);
         List<GenTree> GetPublicTrees();
@@ -37,13 +37,13 @@ namespace GenTreesCore.Services
             personRepository = new PersonRepository(context);
         }
 
-        public void Add(GenTreeViewModel model, int userId, Changes changes = null)
+        public void Add(GenTreeViewModel model, int userId, Dictionary<int, IIdentified> replacements)
         {
             var owner = db.Users.FirstOrDefault(u => u.Id == userId);
 
             if (owner == null)
             {
-                changes?.Errors.Add(new IdError(userId, "tree must have an owner"));
+                //TODO ошибка
                 return;
             }
 
@@ -61,7 +61,7 @@ namespace GenTreesCore.Services
             }
             else
             {
-                tree.GenTreeDateTimeSetting = dateTimeSettingRepository.UpdateOrAdd(model.DateTimeSetting, userId, changes);
+                tree.GenTreeDateTimeSetting = dateTimeSettingRepository.UpdateOrAdd(model.DateTimeSetting, userId, replacements);
             }
             
             db.GenTrees.Add(tree);
@@ -69,20 +69,19 @@ namespace GenTreesCore.Services
             return;
         }
 
-        public void Update(GenTreeViewModel model, int userId, Changes changes = null)
+        public void Update(GenTreeViewModel model, int userId, Dictionary<int, IIdentified> replacements)
         {
-                        var tree = GetTree(model.Id, userId, forUpdate: true);
+            var tree = GetTree(model.Id, userId, forUpdate: true);
 
             if (tree == null)
             {
-                changes?.Errors.Add(new IdError(model.Id, $"tree with id {model.Id} not found"));
+                //TODO $"tree with id {model.Id} not found";
                 return;
             }
 
             converter.ApplyModelData(tree, model);
             if (tree.Name == null) tree.Name = "family tree";
 
-            var replacements = new Dictionary<int, IIdentified>();
             /*добавление-обновление сеттинга*/
             if (model.DateTimeSetting == null)
             {
@@ -90,17 +89,13 @@ namespace GenTreesCore.Services
             }
             else
             {
-                tree.GenTreeDateTimeSetting = dateTimeSettingRepository.UpdateOrAdd(model.DateTimeSetting, userId, changes);
+                tree.GenTreeDateTimeSetting = dateTimeSettingRepository.UpdateOrAdd(model.DateTimeSetting, userId, replacements);
             }
 
             UpdateTemplates(model.DescriptionTemplates, tree, replacements);
             UpdatePersons(model.Persons, tree, replacements);
 
             db.SaveChanges();
-            foreach (var replacement in replacements)
-            {
-                changes.Replacements[replacement.Key] = replacement.Value.Id;
-            }
             return;
         }
 
