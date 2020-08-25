@@ -1,7 +1,7 @@
 ﻿
 namespace GenTreesCore.Entities
 {
-    public abstract class Relation
+    public abstract class Relation : IIdentified
     {
         public int Id { get; set; }
         /// <summary>

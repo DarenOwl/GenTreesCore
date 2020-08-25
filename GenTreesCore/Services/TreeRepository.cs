@@ -26,6 +26,7 @@ namespace GenTreesCore.Services
         private ModelEntityConverter converter;
         private IDateTimeSettingRepository dateTimeSettingRepository;
         private IDescriptionTemplateRepository templateRepository;
+        private IPersonRepository personRepository;
 
         public TreeRepository(ApplicationContext context)
         {
@@ -33,6 +34,7 @@ namespace GenTreesCore.Services
             converter = new ModelEntityConverter();
             dateTimeSettingRepository = new DateTimeSettingRepository(context);
             templateRepository = new DescriptionTemplateRepository(context);
+            personRepository = new PersonRepository(context);
         }
 
         public void Add(GenTreeViewModel model, int userId, Changes changes = null)
@@ -69,7 +71,7 @@ namespace GenTreesCore.Services
 
         public void Update(GenTreeViewModel model, int userId, Changes changes = null)
         {
-            var tree = GetTree(model.Id, userId, forUpdate: true);
+                        var tree = GetTree(model.Id, userId, forUpdate: true);
 
             if (tree == null)
             {
@@ -79,6 +81,8 @@ namespace GenTreesCore.Services
 
             converter.ApplyModelData(tree, model);
             if (tree.Name == null) tree.Name = "family tree";
+
+            var replacements = new Dictionary<int, IIdentified>();
             /*добавление-обновление сеттинга*/
             if (model.DateTimeSetting == null)
             {
@@ -89,9 +93,14 @@ namespace GenTreesCore.Services
                 tree.GenTreeDateTimeSetting = dateTimeSettingRepository.UpdateOrAdd(model.DateTimeSetting, userId, changes);
             }
 
-            templateRepository.Update(model.DescriptionTemplates, tree, changes);
+            UpdateTemplates(model.DescriptionTemplates, tree, replacements);
+            UpdatePersons(model.Persons, tree, replacements);
 
             db.SaveChanges();
+            foreach (var replacement in replacements)
+            {
+                changes.Replacements[replacement.Key] = replacement.Value.Id;
+            }
             return;
         }
 
@@ -170,6 +179,31 @@ namespace GenTreesCore.Services
         public void SaveChanges()
         {
             db.SaveChanges();
+        }
+
+        private void UpdateTemplates(List<CustomPersonDescriptionTemplate> models, GenTree tree, Dictionary<int, IIdentified> replacements)
+        {
+
+            if (tree.CustomPersonDescriptionTemplates == null)
+                tree.CustomPersonDescriptionTemplates = new List<CustomPersonDescriptionTemplate>();
+
+            UpdateRange(
+                fulljoin: FullJoin(tree.CustomPersonDescriptionTemplates, models, (e, m) => e.Id == m.Id),
+                add: model => replacements[model.Id] = templateRepository.Add(model, tree),
+                delete: template => templateRepository.Delete(template, tree),
+                update: (template, model) => templateRepository.Update(template, model));
+        }
+
+        private void UpdatePersons(List<PersonViewModel> models, GenTree tree, Dictionary<int, IIdentified> replacements)
+        {
+            if (tree.Persons == null)
+                tree.Persons = new List<Person>();
+
+            UpdateRange(
+                fulljoin: FullJoin(tree.Persons, models, (e, m) => e.Id == m.Id),
+                add: model => replacements[model.Id] = personRepository.Add(model, tree),
+                delete: person => personRepository.Delete(person, tree),
+                update: (person, model) => personRepository.Update(person, model));
         }
     }
 }

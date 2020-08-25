@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace GenTreesCore.Entities
 {
-    public class GenTree
+    public class GenTree : IIdentified
     {
         public int Id { get; set; }
         public string Name { get; set; }

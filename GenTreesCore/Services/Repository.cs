@@ -22,16 +22,18 @@ namespace GenTreesCore.Services
         {
             var result = new List<ModelEntityPair<E,M>>();
             /*пары элементов (entity-model) и (entity-null)*/
-            foreach (var entity in entities)
-            {
-                result.Add(new ModelEntityPair<E, M>(entity, models?.FirstOrDefault(model => matcher(entity, model))));
-            }
+            if (entities != null)
+                foreach (var entity in entities)
+                {
+                    result.Add(new ModelEntityPair<E, M>(entity, models?.FirstOrDefault(model => matcher(entity, model))));
+                }
             /*пары элементов (null-model)*/
-            foreach (var model in models)
-            {
-                if (entities?.FirstOrDefault(ent => matcher(ent, model)) == null)
-                    result.Add(new ModelEntityPair<E, M>(default, model));
-            }
+            if (models != null)
+                foreach (var model in models)
+                {
+                    if (entities?.FirstOrDefault(ent => matcher(ent, model)) == null)
+                        result.Add(new ModelEntityPair<E, M>(default, model));
+                }
             return result;
         }
 

@@ -2,7 +2,7 @@
 
 namespace GenTreesCore.Entities
 {
-    public class User
+    public class User : IIdentified
     {
         public int Id { get; set; }
         public string Login { get; set; }

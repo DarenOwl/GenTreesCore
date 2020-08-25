@@ -3,7 +3,7 @@ using System.Data.SqlTypes;
 
 namespace GenTreesCore.Entities
 {
-    public class GenTreeDateTime : INullable
+    public class GenTreeDateTime : INullable, IIdentified
     {
         public bool IsNull { get; }
         public int Id { get; set; }
@@ -29,7 +29,7 @@ namespace GenTreesCore.Entities
     /// <summary>
     /// Настройка летоисчисления
     /// </summary>
-    public class GenTreeDateTimeSetting
+    public class GenTreeDateTimeSetting : IIdentified
     {
         public int Id { get; set; }
         public string Name { get; set; }
@@ -46,7 +46,7 @@ namespace GenTreesCore.Entities
     /// <summary>
     /// Эпоха летоисчисления
     /// </summary>
-    public class GenTreeEra
+    public class GenTreeEra : IIdentified
     {
         public int Id { get; set; }
         /// <summary>
