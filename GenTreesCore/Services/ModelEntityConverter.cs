@@ -73,9 +73,9 @@ namespace GenTreesCore.Services
             else
                 return ToViewModel(relation as SpouseRelation);
         }
-        public ChildRelationViewModel ToViewModel(ChildRelation relation)
+        public RelationViewModel ToViewModel(ChildRelation relation)
         {
-            var childRelationModel = new ChildRelationViewModel
+            var childRelationModel = new RelationViewModel
             {
                 Id = relation.Id,
                 TargetPersonId = relation.TargetPerson.Id,
@@ -87,9 +87,9 @@ namespace GenTreesCore.Services
             return childRelationModel;
         }
 
-        public SpouseRelationViewModel ToViewModel(SpouseRelation relation)
+        public RelationViewModel ToViewModel(SpouseRelation relation)
         {
-            return new SpouseRelationViewModel
+            return new RelationViewModel
             {
                 Id = relation.Id,
                 TargetPersonId = relation.TargetPerson.Id,
@@ -116,46 +116,6 @@ namespace GenTreesCore.Services
 
         #endregion
 
-        #region ToEntity
-        public Person ToEntity(PersonViewModel model, GenTree tree)
-        {
-            var entity = new Person();
-            ApplyModelData(entity, model);
-            return entity;
-        }
-
-        public Relation ToEntity(RelationViewModel model, GenTree tree)
-        {
-
-            if (model.GetType() == typeof(SpouseRelationViewModel))
-                return new SpouseRelation
-                {
-                    TargetPerson = tree.Persons.FirstOrDefault(p => p.Id == model.TargetPersonId),
-                    IsFinished = (model as SpouseRelationViewModel).IsFinished
-                };
-            else if (model.GetType() == typeof(ChildRelationViewModel))
-                return new ChildRelation
-                {
-                    TargetPerson = tree.Persons.FirstOrDefault(p => p.Id == model.TargetPersonId),
-                    RelationRate = (RelationRate)Enum.Parse(typeof(RelationRate), (model as ChildRelationViewModel).RelationRate),
-                    SecondParent = tree.Persons.FirstOrDefault(p => p.Id == (model as ChildRelationViewModel).SecondParentId)
-                };
-            else return null;
-        }
-
-        public GenTreeEra ToEntity(GenTreeEra model)
-        {
-            return new GenTreeEra()
-            {
-                Name = model.Name,
-                ShortName = model.ShortName,
-                Description = model.Description,
-                ThroughBeginYear = model.ThroughBeginYear,
-                YearCount = model.YearCount
-            };
-        }
-        #endregion
-
         #region ApplyModelData
         public void ApplyModelData(GenTree entity, GenTreeViewModel model)
         {
@@ -164,73 +124,6 @@ namespace GenTreesCore.Services
             entity.IsPrivate = model.IsPrivate;
             entity.LastUpdated = DateTime.Now;
             entity.Image = model.Image;
-        }
-
-        public void ApplyModelData(Person entity, PersonViewModel model)
-        {
-            entity.LastName = model.LastName;
-            entity.FirstName = model.FirstName;
-            entity.MiddleName = model.MiddleName;
-            entity.BirthPlace = model.BirthPlace;
-            entity.Biography = model.Biography;
-            entity.Gender = model.Gender;
-            entity.Image = model.Image;
-        }
-
-        public void ApplyModelData(CustomPersonDescription entity, CustomPersonDescription model)
-        {
-            if (model == null || entity == null) return;
-            entity.Value = model.Value;
-        }
-
-        public void ApplyModelData(CustomPersonDescriptionTemplate entity, CustomPersonDescriptionTemplate model)
-        {
-            if (model == null || entity == null) return;
-            entity.Name = model.Name;
-            entity.Type = model.Type;
-        }
-
-        public void ApplyModelData(Relation entity, RelationViewModel model)
-        {
-            if (model == null || entity == null) return;
-            if (model is SpouseRelationViewModel && entity is SpouseRelation)
-                (entity as SpouseRelation).IsFinished = (model as SpouseRelationViewModel).IsFinished;
-        }
-
-        public void ApplyModelData(GenTreeDateTime entity, GenTreeDateViewModel model, GenTree tree)
-        {
-            if (model == null || entity == null 
-                || tree.GenTreeDateTimeSetting == null 
-                || tree.GenTreeDateTimeSetting.Eras == null) 
-                return;
-            entity.Era = tree.GenTreeDateTimeSetting.Eras.FirstOrDefault(era => era.Id == model.EraId);
-            if (entity.Era == null) return;
-            entity.Year = model.Year;
-            entity.Month = model.Month;
-            entity.Day = model.Day;
-            entity.Hour = model.Hour;
-            entity.Minute = model.Minute;
-            entity.Second = model.Second;
-        }
-
-        public void ApplyModelData(GenTreeDateTimeSetting entity, GenTreeDateTimeSetting model)
-        {
-            if (entity == null || model == null)
-                return;
-            entity.Name = model.Name;
-            entity.IsPrivate = model.IsPrivate;
-            entity.YearMonthCount = model.YearMonthCount;
-        }
-
-        public void ApplyModelData(GenTreeEra entity, GenTreeEra model)
-        {
-            if (entity == null || model == null)
-                return;
-            entity.Name = model.Name;
-            entity.ShortName = model.ShortName;
-            entity.Description = model.Description;
-            entity.ThroughBeginYear = model.ThroughBeginYear;
-            entity.YearCount = model.YearCount;
         }
         #endregion
     }

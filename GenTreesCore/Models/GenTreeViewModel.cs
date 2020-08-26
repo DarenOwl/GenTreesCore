@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using GenTreesCore.Entities;
 
 namespace GenTreesCore.Models
@@ -39,29 +40,43 @@ namespace GenTreesCore.Models
     {
         public int Id { get; set; }
         public int TargetPersonId { get; set; }
-        public string RelationType { get { return GetRelationName(); } }
-
-        public virtual string GetRelationName() => this.GetType().ToString();
-    }
-
-    public class ChildRelationViewModel: RelationViewModel
-    {
-        public int? SecondParentId { get; set; }
-        public string RelationRate { get; set; }
-
-        public override string GetRelationName()
-        {
-            return "ChildRelation";
+        public string RelationType 
+        { 
+            get => relationType.ToString(); 
+            set
+            {
+                if (value == Type.Child.ToString() || value == Type.Spouse.ToString())
+                    relationType = Enum.Parse<Type>(value, ignoreCase: true);
+            }
         }
-    }
-
-    public class SpouseRelationViewModel: RelationViewModel
-    {
+        public int? SecondParentId { get; set; }
+        public string RelationRate 
+        { 
+            get => relationRate.ToString(); 
+            set
+            {
+                if (value == Entities.RelationRate.BloodRelative.ToString() ||
+                    value == Entities.RelationRate.NotBloodRelative.ToString())
+                    relationRate = Enum.Parse< Entities.RelationRate> (value, ignoreCase: true);
+            }
+        }
         public bool IsFinished { get; set; }
 
-        public override string GetRelationName()
+        private Type relationType;
+        private Entities.RelationRate relationRate;
+
+        public void SetRelationType(Type relationType) => this.relationType = relationType;
+
+        public Type GetRelationType() => relationType;
+
+        public void SetRelationRate(Entities.RelationRate relationRate) => this.relationRate = relationRate;
+
+        public Entities.RelationRate GetRelationRate() => relationRate;
+
+        public enum Type
         {
-            return "SpouseRelation";
+            Spouse,
+            Child
         }
     }
 

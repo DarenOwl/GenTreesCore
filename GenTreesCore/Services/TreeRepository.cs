@@ -186,11 +186,26 @@ namespace GenTreesCore.Services
             if (tree.Persons == null)
                 tree.Persons = new List<Person>();
 
+            var personPairs =  new List<ModelEntityPair<Person, PersonViewModel>>();
+
             UpdateRange(
                 fulljoin: FullJoin(tree.Persons, models, (e, m) => e.Id == m.Id),
-                add: model => personRepository.Add(model, tree, replacements),
+                add: model =>
+                {
+                    var person = personRepository.Add(model, tree, replacements);
+                    personPairs.Add(new ModelEntityPair<Person, PersonViewModel>(person, model));
+                },
                 delete: person => personRepository.Delete(person, tree),
-                update: (person, model) => personRepository.Update(person, model, tree, replacements));
+                update: (person, model) => 
+                {
+                    personRepository.Update(person, model, tree, replacements);
+                    personPairs.Add(new ModelEntityPair<Person, PersonViewModel>(person, model));
+                });
+
+            foreach (var person in personPairs)
+            {
+                personRepository.UpdateRelations(person.Entity, person.Model.Relations, tree, replacements);
+            }
         }
     }
 }
