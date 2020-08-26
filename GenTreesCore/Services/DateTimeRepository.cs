@@ -37,7 +37,7 @@ namespace GenTreesCore.Services
                 Second = model.Second
             };
             replacements[model.Id] = date;
-            return date;
+            return date; 
         }
 
         public void Delete(GenTreeDateTime date)

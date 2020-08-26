@@ -16,7 +16,6 @@ namespace GenTreesCore.Services
         List<GenTree> GetPublicTrees();
         List<GenTree> GetUserGenTrees(int userId);
         void SaveChanges();
-        Changes Update(GenTree entity, GenTreeViewModel model);
         void Update<T>(T entity, int id, bool saveChanges = true);
     }
 
@@ -145,13 +144,6 @@ namespace GenTreesCore.Services
                 Owner = owner
             });
             db.SaveChanges();
-        }
-
-        public Changes Update(GenTree entity, GenTreeViewModel model)
-        {
-            var updateService = new TreeUpdateService(db);
-            updateService.UpdateTree(entity, model);
-            return updateService.UpdateResult;
         }
 
         public void Update<T>(T entity, int id, bool saveChanges = true)

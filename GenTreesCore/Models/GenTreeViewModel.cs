@@ -31,7 +31,7 @@ namespace GenTreesCore.Models
         public string BirthPlace { get; set; }
         public string Biography { get; set; }
         public string Image { get; set; }
-        public List<CustomPersonDescription> CustomDescriptions { get; set; }
+        public List<DescriptionViewModel> CustomDescriptions { get; set; }
         public List<RelationViewModel> Relations { get; set; }
     }
 
@@ -77,5 +77,12 @@ namespace GenTreesCore.Models
         public int Second { get; set; }
         public string ShortDate { get; set; }
         public string FullDate { get; set; }
+    }
+
+    public class DescriptionViewModel
+    {
+        public int Id { get; set; }
+        public int TemplateId { get; set; }
+        public string Value { get; set; }
     }
 }

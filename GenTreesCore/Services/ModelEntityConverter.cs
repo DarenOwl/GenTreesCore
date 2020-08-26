@@ -45,7 +45,12 @@ namespace GenTreesCore.Services
                 Gender = person.Gender,
                 Biography = person.Biography,
                 Image = person.Image,
-                CustomDescriptions = person.CustomDescriptions
+                CustomDescriptions = person.CustomDescriptions.Select(desc => new DescriptionViewModel 
+                    { 
+                        Id = desc.Id,
+                        TemplateId = desc.Template.Id,
+                        Value = desc.Value
+                    }).ToList()
             };
             if (person.BirthDate != null)
             {

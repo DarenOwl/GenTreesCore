@@ -1,7 +1,7 @@
 ﻿using GenTreesCore.Entities;
 using GenTreesCore.Models;
-using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace GenTreesCore.Services
 {
@@ -16,11 +16,13 @@ namespace GenTreesCore.Services
     {
         ApplicationContext db;
         IDateTimeRepository dateTimeRepository;
+        IDescriptionRepository descriptionRepository;
 
         public PersonRepository(ApplicationContext context)
         {
             db = context;
             dateTimeRepository = new DateTimeRepository(context);
+            descriptionRepository = new DescriptionRepository(context);
         }
 
         /// <summary>
@@ -46,6 +48,7 @@ namespace GenTreesCore.Services
             };
             tree.Persons.Add(person);
             replacements[model.Id] = person;
+            UpdateDecsriptions(person, model.CustomDescriptions, tree, replacements);
             return person;
         }
 
@@ -79,6 +82,8 @@ namespace GenTreesCore.Services
 
             person.BirthDate = UpdateDate(person.BirthDate, model.BirthDate, tree.GenTreeDateTimeSetting, replacements);
             person.DeathDate = UpdateDate(person.DeathDate, model.DeathDate, tree.GenTreeDateTimeSetting, replacements);
+
+            UpdateDecsriptions(person, model.CustomDescriptions, tree, replacements);
         }
 
         private GenTreeDateTime UpdateDate(GenTreeDateTime date, GenTreeDateViewModel model,
@@ -104,6 +109,18 @@ namespace GenTreesCore.Services
             {
                 return null;
             }
+        }
+
+        private void UpdateDecsriptions(Person person, List<DescriptionViewModel> models, GenTree tree, Dictionary<int, IIdentified> replacements)
+        {
+            if (person.CustomDescriptions == null)
+                person.CustomDescriptions = new List<CustomPersonDescription>();
+
+            UpdateRange(
+                fulljoin: FullJoin(person.CustomDescriptions, models, (e, m) => e.Template.Id == m.TemplateId).ToList(),
+                add: model => descriptionRepository.Add(model, person, tree, replacements),
+                delete: description => descriptionRepository.Delete(description, person),
+                update: (description, model) => descriptionRepository.Update(description, model, person, tree, replacements));
         }
     }
 }

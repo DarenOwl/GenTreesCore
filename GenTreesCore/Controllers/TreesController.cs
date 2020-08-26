@@ -16,13 +16,11 @@ namespace GenTreesCore.Controllers
     public class TreesController : Controller
     {
         private ITreeRepository treeRepository;
-        private TreeUpdateService updateService;
         private IDateTimeSettingRepository dateTimeSettingRepository;
 
         public TreesController(ApplicationContext context)
         {
             treeRepository = new TreeRepository(context);
-            updateService = new TreeUpdateService(context);
             dateTimeSettingRepository = new DateTimeSettingRepository(context);
         }
 
