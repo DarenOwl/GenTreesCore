@@ -1,9 +1,4 @@
 ﻿using GenTreesCore.Entities;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace GenTreesCore.Services
 {

@@ -196,9 +196,9 @@ namespace GenTreesCore.Services
 
             UpdateRange(
                 fulljoin: FullJoin(tree.Persons, models, (e, m) => e.Id == m.Id),
-                add: model => replacements[model.Id] = personRepository.Add(model, tree),
+                add: model => personRepository.Add(model, tree, replacements),
                 delete: person => personRepository.Delete(person, tree),
-                update: (person, model) => personRepository.Update(person, model));
+                update: (person, model) => personRepository.Update(person, model, tree, replacements));
         }
     }
 }

@@ -109,7 +109,6 @@ namespace GenTreesCore.Services
             ApplyDateTimeSetting(model.DateTimeSetting, tree);
             ApplyDescriptionTemplates(model.DescriptionTemplates, tree);
             ApplyPersons(model.Persons, tree);
-            var stop = 0;
         }
 
         public GenTreeDateTime ApplyDate(GenTreeDateTime date, GenTreeDateViewModel model, GenTree tree)
