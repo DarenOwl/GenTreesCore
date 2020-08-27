@@ -10,6 +10,7 @@ namespace GenTreesCore.Services
     public interface ITreeRepository
     {
         void Add(GenTreeViewModel model, int userId, Replacements replacements);
+        void Delete(int id, int userId);
         void Update(GenTreeViewModel model, int userId, Replacements replacements);
         void AddGenTree(int userId, string name, bool isPrivate);
         GenTree GetTree(int id, int userId, bool forUpdate);
@@ -96,6 +97,34 @@ namespace GenTreesCore.Services
 
             db.SaveChanges();
             return;
+        }
+
+        public void Delete(int id, int userId)
+        {
+            var tree = GetTree(id, userId, forUpdate: true);
+
+            if (tree == null) return;
+
+            if (tree.CustomPersonDescriptionTemplates != null)
+            {
+                var forDelete = new List<CustomPersonDescriptionTemplate>(tree.CustomPersonDescriptionTemplates);
+                foreach (var template in forDelete)
+                {
+                    templateRepository.Delete(template, tree);
+                }
+            }
+
+            if (tree.Persons != null)
+            {
+                var forDelete = new List<Person>(tree.Persons);
+                foreach (var person in forDelete)
+                {
+                    personRepository.Delete(person, tree);
+                }
+            }
+
+            db.GenTrees.Remove(tree);
+            db.SaveChanges();
         }
 
         public List<GenTree> GetUserGenTrees(int userId)

@@ -94,6 +94,19 @@ namespace GenTreesCore.Controllers
                 treeRepository.Update(model, userId, replacements));
         }
 
+        [HttpGet]
+        public IActionResult DeleteTree(int id)
+        {
+            int authorizedUserId;
+            if (HttpContext.User.Identity.IsAuthenticated)
+                authorizedUserId = int.Parse(HttpContext.User.Identity.Name);
+            else
+                return BadRequest("not logged in");
+
+            treeRepository.Delete(id, authorizedUserId);
+            return Ok();
+        }
+
         [HttpPost]
         public IActionResult AddSetting(GenTreeDateTimeSetting model)
         {
