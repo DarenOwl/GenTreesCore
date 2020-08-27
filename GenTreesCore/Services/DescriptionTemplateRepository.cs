@@ -9,7 +9,7 @@ namespace GenTreesCore.Services
 {
     public interface IDescriptionTemplateRepository
     {
-        CustomPersonDescriptionTemplate Add(CustomPersonDescriptionTemplate model, GenTree tree);
+        CustomPersonDescriptionTemplate Add(CustomPersonDescriptionTemplate model, GenTree tree, Replacements replacements);
         void Delete(CustomPersonDescriptionTemplate template, GenTree tree);
         void Update(CustomPersonDescriptionTemplate template, CustomPersonDescriptionTemplate model);
     }
@@ -23,15 +23,16 @@ namespace GenTreesCore.Services
             db = context;
         }
 
-        public CustomPersonDescriptionTemplate Add(CustomPersonDescriptionTemplate model, GenTree tree)
+        public CustomPersonDescriptionTemplate Add(CustomPersonDescriptionTemplate model, GenTree tree, Replacements replacements)
         {
-            var entity = new CustomPersonDescriptionTemplate
+            var template = new CustomPersonDescriptionTemplate
             {
                 Name = model.Name,
                 /*TODO добавить изменение поля Type*/
             };
-            tree.CustomPersonDescriptionTemplates.Add(entity);
-            return entity;
+            tree.CustomPersonDescriptionTemplates.Add(template);
+            replacements.Add(model.Id, template);
+            return template;
         }
 
         public void Delete(CustomPersonDescriptionTemplate template, GenTree tree)

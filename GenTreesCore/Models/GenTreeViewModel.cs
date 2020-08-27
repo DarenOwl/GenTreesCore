@@ -57,7 +57,7 @@ namespace GenTreesCore.Models
             {
                 if (value == Entities.RelationRate.BloodRelative.ToString() ||
                     value == Entities.RelationRate.NotBloodRelative.ToString())
-                    relationRate = Enum.Parse< Entities.RelationRate> (value, ignoreCase: true);
+                    relationRate = Enum.Parse<Entities.RelationRate> (value, ignoreCase: true);
             }
         }
         public bool IsFinished { get; set; }

@@ -9,8 +9,8 @@ namespace GenTreesCore.Services
 {
     public interface ITreeRepository
     {
-        void Add(GenTreeViewModel model, int userId, Dictionary<int, IIdentified> replacements);
-        void Update(GenTreeViewModel model, int userId, Dictionary<int, IIdentified> replacements);
+        void Add(GenTreeViewModel model, int userId, Replacements replacements);
+        void Update(GenTreeViewModel model, int userId, Replacements replacements);
         void AddGenTree(int userId, string name, bool isPrivate);
         GenTree GetTree(int id, int userId, bool forUpdate);
         List<GenTree> GetPublicTrees();
@@ -36,7 +36,7 @@ namespace GenTreesCore.Services
             personRepository = new PersonRepository(context);
         }
 
-        public void Add(GenTreeViewModel model, int userId, Dictionary<int, IIdentified> replacements)
+        public void Add(GenTreeViewModel model, int userId, Replacements replacements)
         {
             var owner = db.Users.FirstOrDefault(u => u.Id == userId);
 
@@ -68,7 +68,7 @@ namespace GenTreesCore.Services
             return;
         }
 
-        public void Update(GenTreeViewModel model, int userId, Dictionary<int, IIdentified> replacements)
+        public void Update(GenTreeViewModel model, int userId, Replacements replacements)
         {
             var tree = GetTree(model.Id, userId, forUpdate: true);
 
@@ -168,7 +168,7 @@ namespace GenTreesCore.Services
             db.SaveChanges();
         }
 
-        private void UpdateTemplates(List<CustomPersonDescriptionTemplate> models, GenTree tree, Dictionary<int, IIdentified> replacements)
+        private void UpdateTemplates(List<CustomPersonDescriptionTemplate> models, GenTree tree, Replacements replacements)
         {
 
             if (tree.CustomPersonDescriptionTemplates == null)
@@ -176,12 +176,12 @@ namespace GenTreesCore.Services
 
             UpdateRange(
                 fulljoin: FullJoin(tree.CustomPersonDescriptionTemplates, models, (e, m) => e.Id == m.Id),
-                add: model => replacements[model.Id] = templateRepository.Add(model, tree),
+                add: model => templateRepository.Add(model, tree, replacements),
                 delete: template => templateRepository.Delete(template, tree),
                 update: (template, model) => templateRepository.Update(template, model));
         }
 
-        private void UpdatePersons(List<PersonViewModel> models, GenTree tree, Dictionary<int, IIdentified> replacements)
+        private void UpdatePersons(List<PersonViewModel> models, GenTree tree, Replacements replacements)
         {
             if (tree.Persons == null)
                 tree.Persons = new List<Person>();

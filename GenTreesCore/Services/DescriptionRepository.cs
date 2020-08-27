@@ -1,15 +1,14 @@
 ﻿using GenTreesCore.Entities;
 using GenTreesCore.Models;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace GenTreesCore.Services
 {
     public interface IDescriptionRepository
     {
-        CustomPersonDescription Add(DescriptionViewModel model, Person person, GenTree tree, Dictionary<int, IIdentified> replacements);
+        CustomPersonDescription Add(DescriptionViewModel model, Person person, GenTree tree, Replacements replacements);
         void Delete(CustomPersonDescription description, Person person);
-        void Update(CustomPersonDescription description, DescriptionViewModel model, Person person, GenTree tree, Dictionary<int, IIdentified> replacements);
+        void Update(CustomPersonDescription description, DescriptionViewModel model, Person person, GenTree tree, Replacements replacements);
     }
 
     public class DescriptionRepository : IDescriptionRepository
@@ -21,12 +20,13 @@ namespace GenTreesCore.Services
             db = context;
         }
 
-        public CustomPersonDescription Add(DescriptionViewModel model, Person person, GenTree tree, Dictionary<int, IIdentified> replacements)
+        public CustomPersonDescription Add(DescriptionViewModel model, Person person, GenTree tree, Replacements replacements)
         {
             var template = GetTemplate(model.TemplateId, tree, replacements);
             if (template == null)
             {
-                return null; //TODO error "no template found for the description. Description was not added"
+                replacements.AddError(model.Id, "no template found for the description. Description was not added", wasRemoved: true);
+                return null;
             }
 
             var description = new CustomPersonDescription
@@ -34,8 +34,8 @@ namespace GenTreesCore.Services
                 Template = template,
                 Value = model.Value
             };
-            replacements[model.Id] = description;
 
+            replacements.Add(model.Id, description);
             person.CustomDescriptions.Add(description);
             return description;
         }
@@ -46,22 +46,23 @@ namespace GenTreesCore.Services
             db.Set<CustomPersonDescription>().Remove(description);
         }
 
-        public void Update(CustomPersonDescription description, DescriptionViewModel model, Person person, GenTree tree, Dictionary<int, IIdentified> replacements)
+        public void Update(CustomPersonDescription description, DescriptionViewModel model, Person person, GenTree tree, Replacements replacements)
         {
             var template = GetTemplate(model.TemplateId, tree, replacements);
             if (template == null)
             {
-                Delete(description, person); //TODO error "no template found for the description. Description was removed"
+                replacements.AddError(model.Id, "no template found for the description. Description was removed", wasRemoved: true);
+                Delete(description, person);
                 return;
             }
             description.Value = model.Value;
         }
 
-        private CustomPersonDescriptionTemplate GetTemplate(int id, GenTree tree, Dictionary<int, IIdentified> replacements)
+        private CustomPersonDescriptionTemplate GetTemplate(int id, GenTree tree, Replacements replacements)
         {
-            if (replacements.ContainsKey(id) && replacements[id] is CustomPersonDescriptionTemplate)
+            if (replacements.Contains<CustomPersonDescriptionTemplate>(id))
             {
-                return replacements[id] as CustomPersonDescriptionTemplate;
+                return replacements.Get<CustomPersonDescriptionTemplate>(id);
             }
             else
             {

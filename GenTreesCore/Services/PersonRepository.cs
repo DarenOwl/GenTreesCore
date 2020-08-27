@@ -7,10 +7,10 @@ namespace GenTreesCore.Services
 {
     public interface IPersonRepository
     {
-        Person Add(PersonViewModel model, GenTree tree, Dictionary<int, IIdentified> replacements);
+        Person Add(PersonViewModel model, GenTree tree, Replacements replacements);
         void Delete(Person person, GenTree tree);
-        void Update(Person person, PersonViewModel model, GenTree tree, Dictionary<int, IIdentified> replacements);
-        void UpdateRelations(Person person, List<RelationViewModel> models, GenTree tree, Dictionary<int, IIdentified> replacements);
+        void Update(Person person, PersonViewModel model, GenTree tree, Replacements replacements);
+        void UpdateRelations(Person person, List<RelationViewModel> models, GenTree tree, Replacements replacements);
     }
 
     public class PersonRepository : Repository, IPersonRepository
@@ -35,8 +35,14 @@ namespace GenTreesCore.Services
         /// <param name="tree"></param>
         /// <param name="replacements">замены</param>
         /// <returns></returns>
-        public Person Add(PersonViewModel model, GenTree tree, Dictionary<int, IIdentified> replacements)
+        public Person Add(PersonViewModel model, GenTree tree, Replacements replacements)
         {
+            if (model.FirstName == null || model.LastName == null)
+            {
+                replacements.AddError(model.Id, "A person must have a First Name and a Last Name. Person was not added", wasRemoved: true);
+                return null;
+            }
+
             var person = new Person
             {
                 LastName = model.LastName,
@@ -47,6 +53,7 @@ namespace GenTreesCore.Services
                 Gender = model.Gender,
                 Image = model.Image,
             };
+
             if (model.BirthDate != null)
             {
                 person.BirthDate = dateTimeRepository.Add(model.BirthDate, tree.GenTreeDateTimeSetting, replacements);
@@ -56,7 +63,7 @@ namespace GenTreesCore.Services
                 person.DeathDate = dateTimeRepository.Add(model.DeathDate, tree.GenTreeDateTimeSetting, replacements);
             }
             tree.Persons.Add(person);
-            replacements[model.Id] = person;
+            replacements.Add(model.Id, person);
             UpdateDecsriptions(person, model.CustomDescriptions, tree, replacements);
             return person;
         }
@@ -83,10 +90,20 @@ namespace GenTreesCore.Services
         /// <param name="tree"></param>
         /// <param name="replacements">замены</param>
         /// <returns></returns>
-        public void Update(Person person, PersonViewModel model, GenTree tree, Dictionary<int, IIdentified> replacements)
+        public void Update(Person person, PersonViewModel model, GenTree tree, Replacements replacements)
         {
-            person.LastName = model.LastName;
-            person.FirstName = model.FirstName;
+            if (model.FirstName == null || model.LastName == null)
+            {
+                replacements.AddError(model.Id,
+                    $"A person must have a First Name and a Last Name. First Name ({person.FirstName}) and Last Name({person.LastName}) were not changed",
+                    wasRemoved: false);
+            }
+            else
+            {
+                person.LastName = model.LastName;
+                person.FirstName = model.FirstName;
+            } 
+
             person.MiddleName = model.MiddleName;
             person.BirthPlace = model.BirthPlace;
             person.BirthPlace = model.Biography;
@@ -100,7 +117,7 @@ namespace GenTreesCore.Services
         }
 
         private GenTreeDateTime UpdateDate(GenTreeDateTime date, GenTreeDateViewModel model,
-            GenTreeDateTimeSetting setting, Dictionary<int, IIdentified> replacements)
+            GenTreeDateTimeSetting setting, Replacements replacements)
         {
             if (date != null)
             {
@@ -124,7 +141,7 @@ namespace GenTreesCore.Services
             }
         }
 
-        private void UpdateDecsriptions(Person person, List<DescriptionViewModel> models, GenTree tree, Dictionary<int, IIdentified> replacements)
+        private void UpdateDecsriptions(Person person, List<DescriptionViewModel> models, GenTree tree, Replacements replacements)
         {
             if (person.CustomDescriptions == null)
                 person.CustomDescriptions = new List<CustomPersonDescription>();
@@ -143,7 +160,7 @@ namespace GenTreesCore.Services
         /// <param name="models">модели отношений</param>
         /// <param name="tree">дерево</param>
         /// <param name="replacements">словарь замен</param>
-        public void UpdateRelations(Person person, List<RelationViewModel> models, GenTree tree, Dictionary<int, IIdentified> replacements)
+        public void UpdateRelations(Person person, List<RelationViewModel> models, GenTree tree, Replacements replacements)
         {
             if (person.Relations == null)
                 person.Relations = new List<Relation>();

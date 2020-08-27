@@ -125,7 +125,7 @@ namespace GenTreesCore.Controllers
         /// <item>Ok со списком ошибок и замен в body после выполнения действия с БД</item>
         /// </list>
         /// </returns>
-        private IActionResult ProcessDBOperation(Action<int, Dictionary<int, IIdentified>> DBaction)
+        private IActionResult ProcessDBOperation(Action<int, Replacements> DBaction)
         {
             int authorizedUserId;
             if (HttpContext.User.Identity.IsAuthenticated)
@@ -133,13 +133,14 @@ namespace GenTreesCore.Controllers
             else
                 return BadRequest("not logged in");
 
-            var replacements = new Dictionary<int, IIdentified>();
+            var replacements = new Replacements();
             DBaction(authorizedUserId, replacements);
 
             return Ok(JsonConvert.SerializeObject(
-                new Changes 
-                { 
-                    Replacements = replacements.ToDictionary(x => x.Key, x => x.Value.Id) 
+                new ReplacementsModel
+                {
+                    Replacements = replacements.GetIdReplacements(),
+                    Errors = replacements.Errors
                 }));
         }
     }

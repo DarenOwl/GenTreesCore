@@ -1,17 +1,14 @@
 ﻿using GenTreesCore.Entities;
 using GenTreesCore.Models;
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace GenTreesCore.Services
 {
     public interface IRelationRepository
     {
-        Relation Add(RelationViewModel model, Person person, GenTree tree, Dictionary<int, IIdentified> replacements);
+        Relation Add(RelationViewModel model, Person person, GenTree tree, Replacements replacements);
         void Delete(Relation relation, Person person);
-        void Update(Relation relation, RelationViewModel model, Person person, GenTree tree, Dictionary<int, IIdentified> replacements);
+        void Update(Relation relation, RelationViewModel model, Person person, GenTree tree, Replacements replacements);
     }
 
     public class RelationRepository : IRelationRepository
@@ -23,18 +20,18 @@ namespace GenTreesCore.Services
             db = context;
         }
 
-        public Relation Add(RelationViewModel model, Person person, GenTree tree, Dictionary<int, IIdentified> replacements)
+        public Relation Add(RelationViewModel model, Person person, GenTree tree, Replacements replacements)
         {
             if (model.RelationType == null)
             {
-                //TODO error "relation has an unknown type. Relation was not added"
+                replacements.AddError(model.Id, "relation has an unknown type. Relation was not added", wasRemoved: true);
                 return null;
             }
 
             var targetPerson = GetPerson(model.TargetPersonId, tree, replacements);
             if (targetPerson == null)
             {
-                //TODO error "relation must have a target person. Relation was not added"
+                replacements.AddError(model.Id, "relation must have a target person. Relation was not added", wasRemoved: true);
                 return null;
             }
 
@@ -42,7 +39,7 @@ namespace GenTreesCore.Services
             {
                 if (model.RelationRate == null)
                 {
-                    //TODO error "relation has a wrong relation rate value. Relation was not added"
+                    replacements.AddError(model.Id, "relation has a wrong relation rate value. Relation was not added", wasRemoved: true);
                     return null;
                 }
                 var relation = new ChildRelation
@@ -52,7 +49,7 @@ namespace GenTreesCore.Services
                 };
                 if (model.SecondParentId != null)
                     relation.SecondParent = GetPerson((int)model.SecondParentId, tree, replacements);
-                replacements[model.Id] = relation;
+                replacements.Add(model.Id, relation);
                 person.Relations.Add(relation);
                 return relation;
             }
@@ -63,12 +60,13 @@ namespace GenTreesCore.Services
                     TargetPerson = targetPerson,
                     IsFinished = model.IsFinished
                 };
-                replacements[model.Id] = relation;
+                replacements.Add(model.Id, relation);
                 person.Relations.Add(relation);
                 return relation;
             }
             else
             {
+                replacements.AddError(model.Id, "Relation was not added", wasRemoved: true);
                 return null;
             }
         }
@@ -79,11 +77,11 @@ namespace GenTreesCore.Services
             db.Set<Relation>().Remove(relation);
         }
 
-        public void Update(Relation relation, RelationViewModel model, Person person, GenTree tree, Dictionary<int, IIdentified> replacements)
+        public void Update(Relation relation, RelationViewModel model, Person person, GenTree tree, Replacements replacements)
         {
             if (!tree.Persons.Contains(relation.TargetPerson))
             {
-                //TODO error "target person does not exist. Relation was removed"
+                replacements.AddError(model.Id, "Target person does not exist. Relation was removed", wasRemoved: true);
                 Delete(relation, person);
             }
             if (model.GetRelationType() == RelationViewModel.Type.Child && relation is ChildRelation)
@@ -98,15 +96,15 @@ namespace GenTreesCore.Services
             }
             else
             {
-                //TODO error "unknown relation type. Relation was not changed"
+                replacements.AddError(model.Id, "unknown relation type. Relation was not changed", wasRemoved: false);
             }
         }
 
-        private Person GetPerson(int id, GenTree tree, Dictionary<int, IIdentified> replacements)
+        private Person GetPerson(int id, GenTree tree, Replacements replacements)
         {
-            if (replacements.ContainsKey(id) && replacements[id] is Person)
+            if (replacements.Contains<Person>(id))
             {
-                return replacements[id] as Person;
+                return replacements.Get<Person>(id);
             }
             else
             {

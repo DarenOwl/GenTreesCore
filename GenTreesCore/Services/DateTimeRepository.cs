@@ -1,15 +1,14 @@
 ﻿using GenTreesCore.Entities;
 using GenTreesCore.Models;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace GenTreesCore.Services
 {
     public interface IDateTimeRepository
     {
-        GenTreeDateTime Add(GenTreeDateViewModel model, GenTreeDateTimeSetting setting, Dictionary<int, IIdentified> replacements);
+        GenTreeDateTime Add(GenTreeDateViewModel model, GenTreeDateTimeSetting setting, Replacements replacements);
         void Delete(GenTreeDateTime date);
-        GenTreeDateTime Update(GenTreeDateTime date, GenTreeDateViewModel model, GenTreeDateTimeSetting setting, Dictionary<int, IIdentified> replacements);
+        GenTreeDateTime Update(GenTreeDateTime date, GenTreeDateViewModel model, GenTreeDateTimeSetting setting, Replacements replacements);
     }
 
     public class DateTimeRepository : IDateTimeRepository
@@ -21,10 +20,14 @@ namespace GenTreesCore.Services
             db = context;
         }
 
-        public GenTreeDateTime Add(GenTreeDateViewModel model, GenTreeDateTimeSetting setting, Dictionary<int, IIdentified> replacements)
+        public GenTreeDateTime Add(GenTreeDateViewModel model, GenTreeDateTimeSetting setting, Replacements replacements)
         {
             var era = GetEra(model.EraId, setting, replacements);
-            if (era == null) return null;
+            if (era == null)
+            {
+                AddEraError(model.Id, replacements);
+                return null;
+            }
 
             var date = new GenTreeDateTime
             {
@@ -36,7 +39,7 @@ namespace GenTreesCore.Services
                 Minute = model.Minute,
                 Second = model.Second
             };
-            replacements[model.Id] = date;
+            replacements.Add(model.Id, date);
             return date; 
         }
 
@@ -45,10 +48,11 @@ namespace GenTreesCore.Services
             db.Set<GenTreeDateTime>().Remove(date);
         }
 
-        public GenTreeDateTime Update(GenTreeDateTime date, GenTreeDateViewModel model, GenTreeDateTimeSetting setting, Dictionary<int, IIdentified> replacements)
+        public GenTreeDateTime Update(GenTreeDateTime date, GenTreeDateViewModel model, GenTreeDateTimeSetting setting, Replacements replacements)
         {
             if (setting.Eras == null)
             {
+                AddEraError(model.Id, replacements);
                 Delete(date);
                 return null;
             };
@@ -60,6 +64,7 @@ namespace GenTreesCore.Services
             }
             if (era == null)
             {
+                AddEraError(model.Id, replacements);
                 Delete(date);
                 return null;
             }
@@ -74,14 +79,21 @@ namespace GenTreesCore.Services
             return date;
         }
 
-        private GenTreeEra GetEra(int id, GenTreeDateTimeSetting setting, Dictionary<int, IIdentified> replacements)
+        private GenTreeEra GetEra(int id, GenTreeDateTimeSetting setting, Replacements replacements)
         {
-            var era = new GenTreeEra();
-            if (replacements.ContainsKey(id) && replacements[id] is GenTreeEra)
-                era = replacements[id] as GenTreeEra;
+            if (replacements.Contains<GenTreeEra>(id))
+            {
+                return replacements.Get<GenTreeEra>(id);
+            }
             else
-                era = setting.Eras.FirstOrDefault(e => e.Id == id);
-            return era;
+            {
+                return setting.Eras.FirstOrDefault(e => e.Id == id);
+            }
+        }
+
+        private void AddEraError(int dateId, Replacements replacements)
+        {
+            replacements.AddError(dateId, $"invalid date. No eras were found to replace the wrong id.", wasRemoved: true);
         }
     }
 }

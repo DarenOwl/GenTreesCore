@@ -1,5 +1,4 @@
 ﻿using GenTreesCore.Entities;
-using GenTreesCore.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,9 +7,9 @@ namespace GenTreesCore.Services
 {
     public interface IDateTimeSettingRepository
     {
-        GenTreeDateTimeSetting Add(GenTreeDateTimeSetting model, int userId, Dictionary<int, IIdentified> replacements);
-        void Update(GenTreeDateTimeSetting setting, GenTreeDateTimeSetting model, Dictionary<int, IIdentified> replacements);
-        GenTreeDateTimeSetting UpdateOrAdd(GenTreeDateTimeSetting model, int userId, Dictionary<int, IIdentified> replacements);
+        GenTreeDateTimeSetting Add(GenTreeDateTimeSetting model, int userId, Replacements replacements);
+        void Update(GenTreeDateTimeSetting setting, GenTreeDateTimeSetting model, Replacements replacements);
+        GenTreeDateTimeSetting UpdateOrAdd(GenTreeDateTimeSetting model, int userId, Replacements replacements);
         GenTreeDateTimeSetting GetDefault();
         GenTreeDateTimeSetting GetSetting(int id, int userId);
     }
@@ -19,16 +18,14 @@ namespace GenTreesCore.Services
     {
         private ApplicationContext db;
         private IEraRepository eraRepository;
-        private ModelEntityConverter converter;
 
         public DateTimeSettingRepository(ApplicationContext context)
         {
             db = context;
-            converter = new ModelEntityConverter();
             eraRepository = new EraRepository(context);
         }
 
-        public GenTreeDateTimeSetting UpdateOrAdd(GenTreeDateTimeSetting model, int userId, Dictionary<int, IIdentified> replacements)
+        public GenTreeDateTimeSetting UpdateOrAdd(GenTreeDateTimeSetting model, int userId, Replacements replacements)
         {
             var setting = GetSetting(model.Id, userId);
             if (setting == null)
@@ -38,39 +35,49 @@ namespace GenTreesCore.Services
             return setting;
         }
 
-        public GenTreeDateTimeSetting Add(GenTreeDateTimeSetting model, int userId, Dictionary<int, IIdentified> replacements)
+        public GenTreeDateTimeSetting Add(GenTreeDateTimeSetting model, int userId, Replacements replacements)
         {
             /*поиск пользователя по id*/
             var owner = db.Users.FirstOrDefault(User => User.Id == userId);
             if (owner == null)
             {
-                //TODO ошибка
+                replacements.AddError(model.Id, $"you must be registered to add a setting", wasRemoved: true);
                 return null;
             }
 
             var setting = new GenTreeDateTimeSetting()
             {
-                Name = model.Name,
                 IsPrivate = model.IsPrivate,
                 Owner = owner,
                 YearMonthCount = model.YearMonthCount,
                 Eras = new List<GenTreeEra>()
             };
-            replacements[model.Id] = setting;
 
-            if (model.Eras != null)
-                foreach (var eraModel in model.Eras)
-                {
-                    replacements[eraModel.Id] = eraRepository.Add(eraModel, setting);
-                }
+            if (model.Name == null)
+            {
+                replacements.AddError(model.Id, "Setting must have a Name. Name was set to default", wasRemoved: false);
+            }
+            else
+            {
+                setting.Name = model.Name;
+            }
 
+            replacements.Add(model.Id, setting);
+            AddEras(model.Eras, setting, replacements);
             db.GenTreeDateTimeSettings.Add(setting);
             return setting;
         }
 
-        public void Update(GenTreeDateTimeSetting setting, GenTreeDateTimeSetting model, Dictionary<int, IIdentified> replacements)
+        public void Update(GenTreeDateTimeSetting setting, GenTreeDateTimeSetting model, Replacements replacements)
         {
-            setting.Name = model.Name; //TODO проверка на null
+            if (model.Name == null)
+            {
+                replacements.AddError(model.Id, "Setting must have a Name. Old Name was not changed", wasRemoved: false);
+            }
+            else
+            {
+                setting.Name = model.Name;
+            }
             setting.IsPrivate = model.IsPrivate;
             setting.YearMonthCount = model.YearMonthCount;
 
@@ -97,16 +104,25 @@ namespace GenTreesCore.Services
                  .FirstOrDefault(setting => !setting.IsPrivate);
         }
 
-        private void UpdateEras(List<GenTreeEra> models, GenTreeDateTimeSetting setting, Dictionary<int, IIdentified> replacements)
+        private void AddEras(List<GenTreeEra> models, GenTreeDateTimeSetting setting, Replacements replacements)
+        {
+            if (models != null)
+                foreach (var eraModel in models)
+                {
+                    eraRepository.Add(eraModel, setting, replacements);
+                }
+        }
+
+        private void UpdateEras(List<GenTreeEra> models, GenTreeDateTimeSetting setting, Replacements replacements)
         {
             if (setting.Eras == null)
                 setting.Eras = new List<GenTreeEra>();
 
             UpdateRange(
                 fulljoin: FullJoin(setting.Eras, models, (e, m) => e.Id == m.Id).ToList(),
-                add: model => replacements[model.Id] = eraRepository.Add(model, setting),
+                add: model => eraRepository.Add(model, setting, replacements),
                 delete: era => eraRepository.Delete(era, setting),
-                update: (era, model) => eraRepository.Update(era, model));
+                update: (era, model) => eraRepository.Update(era, model, replacements));
         }
     }
 }
